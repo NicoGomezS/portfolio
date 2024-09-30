@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Two Column Layout</title>
+    <link href="https://fonts.googleapis.com/css2?family=Helvetica+Neue&display=swap" rel="stylesheet">
+    <style>
+        body {
+            display: flex;
+            height: 100vh;
+            margin: 0;
+            font-family: 'Helvetica Neue', sans-serif;
+            font-size: 16px;
+        }
+        .left-column {
+            width: 20%;
+            background-color: #ffffff;
+            padding: 20px;
+            box-sizing: border-box;
+            position: fixed;
+            height: 100%;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .left-column ul {
+            list-style-type: none;
+            padding: 0;
+            margin: 0; /* Remove the left margin */
+        }
+        .left-column ul li a {
+            color: inherit; /* Use the same color as the parent element */
+            text-decoration: none; /* Remove underline */
+            display: block;
+            padding: 2px 0; /* Reduce padding to make spacing smaller */
+        }
+        .left-column ul li a:hover span {
+            text-decoration: underline; /* Add underline on hover */
+        }
+        .left-column ul li a.selected span {
+            color: white;
+            text-decoration: underline;
+            text-decoration-color: black;
+            background-color: rgb(8, 0, 255);
+            padding-right: 5px; /* Add padding to the right to include space in underline */
+        }
+        .left-column ul ul {
+            display: none; /* Hide nested list by default */
+            padding-left: 20px; /* Indent nested list */
+        }
+        .left-column ul li.expanded > ul {
+            display: block; /* Show nested list when parent is expanded */
+        }
+        .right-column {
+            margin-left: 20%;
+            padding: 0; /* Remove padding */
+            box-sizing: border-box;
+            width: 80%;
+            background-color: #ffffff;
+            overflow-y: auto;
+            scroll-snap-type: y mandatory; /* Enable scroll snapping */
+        }
+        .right-column section {
+            height: 100vh; /* Make each section take full viewport height */
+            scroll-snap-align: start; /* Snap to the start of each section */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            overflow-y: auto; /* Make each section scrollable */
+            padding: 20px; /* Add padding for content */
+            box-sizing: border-box;
+        }
+        .footer {
+            font-size: 10px; /* Change font size to 10px */
+            color: darkgrey;
+            text-align: left; /* Align text to the left */
+        }
+    </style>
+</head>
+<body>
+    <div class="left-column">
+        <ul>
+            <li><a href="#item1" class="nav-item" data-target="item1"><span><strong>Nicolás Gómez Salamanca</strong></span></a></li>
+            <li class="expandable"><a href="#item2" class="nav-item" data-target="item2"><span>Short Films</span></a>
+                <ul>
+                    <li><a href="#subitem1" class="nav-item" data-target="subitem1"><span>Dew Point</span></a></li>
+                    <li><a href="#subitem2" class="nav-item" data-target="subitem2"><span>The Cosmic MicroWaves Background</span></a></li>
+                    <li><a href="#subitem3" class="nav-item" data-target="subitem3"><span>Les champs de la colonisation</span></a></li>
+                    <li><a href="#subitem4" class="nav-item" data-target="subitem4"><span>In Parallel</span></a></li>
+                    <li><a href="#subitem5" class="nav-item" data-target="subitem5"><span>Discorde</span></a></li>
+                    <li><a href="#subitem6" class="nav-item" data-target="subitem6"><span>Theremespare</span></a></li>
+                    <li><a href="#subitem7" class="nav-item" data-target="subitem7"><span>Loch Nice</span></a></li>
+                    <li><a href="#subitem8" class="nav-item" data-target="subitem8"><span>Tendre Phonocène</span></a></li>
+                    <li><a href="#subitem9" class="nav-item" data-target="subitem9"><span>Delete Forever</span></a></li>
+                    <li><a href="#subitem10" class="nav-item" data-target="subitem10"><span>Short Film 10</span></a></li>
+                    <li><a href="#subitem11" class="nav-item" data-target="subitem11"><span>Short Film 11</span></a></li>
+                    <li><a href="#subitem12" class="nav-item" data-target="subitem12"><span>Short Film 12</span></a></li>
+                </ul>
+            </li>
+            <li><a href="#item3" class="nav-item" data-target="item3"><span>Item 3</span></a></li>
+            <li><a href="#item4" class="nav-item" data-target="item4"><span>Item 4</span></a></li>
+            <li><a href="#item5" class="nav-item" data-target="item5"><span>Item 5</span></a></li>
+        </ul>
+        <div class="footer">
+            ©2024 Nicolás Gómez Salamanca
+        </div>
+    </div>
+    <div class="right-column">
+        <section id="item1">
+            <h2><strong>Nicolás Gómez Salamanca</strong></h2>
+            <p>Content for Nicolás Gómez Salamanca...</p>
+            <p>More content...</p>
+            <p>Even more content...</p>
+        </section>
+        <section id="item2">
+            <h2>Short Films</h2>
+            <p>Content for Short Films...</p>
+            <p>More content...</p>
+            <p>Even more content...</p>
+        </section>
+        <section id="subitem1">
+            <h2>Short Film 1</h2>
+            <p>Content for Short Film 1...</p>
+        </section>
+        <section id="subitem2">
+            <h2>Short Film 2</h2>
+            <p>Content for Short Film 2...</p>
+        </section>
+        <section id="subitem3">
+            <h2>Short Film 3</h2>
+            <p>Content for Short Film 3...</p>
+        </section>
+        <section id="subitem4">
+            <h2>Short Film 4</h2>
+            <p>Content for Short Film 4...</p>
+        </section>
+        <section id="subitem5">
+            <h2>Short Film 5</h2>
+            <p>Content for Short Film 5...</p>
+        </section>
+        <section id="subitem6">
+            <h2>Short Film 6</h2>
+            <p>Content for Short Film 6...</p>
+        </section>
+        <section id="subitem7">
+            <h2>Short Film 7</h2>
+            <p>Content for Short Film 7...</p>
+        </section>
+        <section id="subitem8">
+            <h2>Short Film 8</h2>
+            <p>Content for Short Film 8...</p>
+        </section>
+        <section id="subitem9">
+            <h2>Short Film 9</h2>
+            <p>Content for Short Film 9...</p>
+        </section>
+        <section id="subitem10">
+            <h2>Short Film 10</h2>
+            <p>Content for Short Film 10...</p>
+        </section>
+        <section id="subitem11">
+            <h2>Short Film 11</h2>
+            <p>Content for Short Film 11...</p>
+        </section>
+        <section id="subitem12">
+            <h2>Short Film 12</h2>
+            <p>Content for Short Film 12...</p>
+        </section>
+        <section id="item3">
+            <h2>Item 3</h2>
+            <p>Content for item 3...</p>
+            <p>More content...</p>
+            <p>Even more content...</p>
+        </section>
+        <section id="item4">
+            <h2>Item 4</h2>
+            <p>Content for item 4...</p>
+            <p>More content...</p>
+            <p>Even more content...</p>
+        </section>
+        <section id="item5">
+            <h2>Item 5</h2>
+            <p>Content for item 5...</p>
+            <p>More content...</p>
+            <p>Even more content...</p>
+        </section>
+    </div>
+    <script>
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', function(event) {
+                event.preventDefault();
+                document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('selected'));
+                this.classList.add('selected');
+                
+                const targetId = this.getAttribute('data-target');
+                document.getElementById(targetId).scrollIntoView({ behavior: 'smooth' });
+            });
+        });
+
+        // Show the first section by default
+        document.querySelector('.nav-item').click();
+
+        // Intersection Observer to highlight nav item on scroll
+        const sections = document.querySelectorAll('section');
+        const observerOptions = {
+            root: null,
+            rootMargin: '0px',
+            threshold: 0.5
+        };
+
+        const observer = new IntersectionObserver((entries, observer) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('selected'));
+                    const navItem = document.querySelector(`.nav-item[data-target="${entry.target.id}"]`);
+                    if (navItem) {
+                        navItem.classList.add('selected');
+                    }
+                }
+            });
+        }, observerOptions);
+
+        sections.forEach(section => {
+            observer.observe(section);
+        });
+
+        // Expandable menu logic
+        document.querySelectorAll('.expandable > a').forEach(item => {
+            item.addEventListener('click', function(event) {
+                event.preventDefault();
+                const parent = this.parentElement;
+                parent.classList.toggle('expanded');
+            });
+        });
+    </script>
+</body>
+</html>
