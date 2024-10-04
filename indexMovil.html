@@ -4,61 +4,41 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nicolás Gómez Salamanca</title>
+    <meta charset="UTF-8">
     <link href="https://fonts.googleapis.com/css2?family=Helvetica+Neue&display=swap" rel="stylesheet">
     <style>
         body {
             display: flex;
-            flex-direction: column;
             height: 100vh;
             margin: 0;
             font-family: 'Helvetica Neue', sans-serif;
             font-size: 16px;
         }
-        .header {
-            width: 100%;
-            background-color: #ffffff;
-            padding: 10px;
-            box-sizing: border-box;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid #ccc;
-            position: fixed;
-            top: 0;
-            z-index: 1001;
-        }
-        .menu-icon {
-            font-size: 24px;
-            cursor: pointer;
-        }
         .left-column {
-            width: 250px;
+            width: 20%;
             background-color: #ffffff;
             padding: 20px;
             box-sizing: border-box;
             position: fixed;
-            height: calc(100% - 50px); /* Adjust for the fixed header height */
+            height: 100%;
             overflow-y: auto;
-            display: none;
+            display: flex;
             flex-direction: column;
             justify-content: space-between;
-            z-index: 1000;
-            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
-            top: 50px; /* Adjust for the fixed header height */
         }
         .left-column ul {
             list-style-type: none;
             padding: 0;
-            margin: 0;
+            margin: 0; /* Remove the left margin */
         }
         .left-column ul li a {
-            color: inherit;
-            text-decoration: none;
+            color: inherit; /* Use the same color as the parent element */
+            text-decoration: none; /* Remove underline */
             display: block;
-            padding: 2px 0;
+            padding: 2px 0; /* Reduce padding to make spacing smaller */
         }
         .left-column ul li a:hover span {
-            text-decoration: underline;
+            text-decoration: underline; /* Add underline on hover */
         }
         .left-column ul li a.selected span,
         .left-column ul li a.highlight span {
@@ -66,34 +46,33 @@
             text-decoration: underline;
             text-decoration-color: black;
             background-color: rgb(8, 0, 255);
-            padding-right: 5px;
+            padding-right: 5px; /* Add padding to the right to include space in underline */
         }
         .left-column ul ul {
-            display: none;
-            padding-left: 20px;
+            display: none; /* Hide nested list by default */
+            padding-left: 20px; /* Indent nested list */
         }
         .left-column ul li.expanded > ul {
-            display: block;
+            display: block; /* Show nested list when parent is expanded */
         }
         .right-column {
-            flex: 1;
-            padding: 0;
+            margin-left: 20%;
+            padding: 0; /* Remove padding */
             box-sizing: border-box;
-            width: 100%;
+            width: 80%;
             background-color: #ffffff;
             overflow-y: auto;
-            scroll-snap-type: y mandatory;
-            margin-top: 50px; /* Adjust for the fixed header height */
+            scroll-snap-type: y mandatory; /* Enable scroll snapping */
         }
         .right-column section {
-            min-height: 100vh;
-            scroll-snap-align: start;
+            min-height: 100vh; /* Ensure each section takes at least full viewport height */
+            scroll-snap-align: start; /* Snap to the start of each section */
             display: flex;
             flex-direction: column;
-            justify-content: flex-start;
+            justify-content: flex-start; /* Align content to the top */
             align-items: center;
-            overflow-y: auto;
-            padding: 20px;
+            overflow-y: auto; /* Make each section scrollable */
+            padding: 20px; /* Add padding for content */
             box-sizing: border-box;
         }
         .right-column section .description {
@@ -103,12 +82,14 @@
             box-sizing: border-box;
         }
         .footer {
-            font-size: 10px;
+            font-size: 10px; /* Change font size to 10px */
             color: darkgrey;
-            text-align: left;
-            margin-top: 20px; /* Add margin to separate footer from the last item */
+            text-align: left; /* Align text to the left */
         }
         .language-switcher {
+            position: absolute;
+            top: 10px;
+            right: 20px;
             font-size: 14px;
         }
         .language-switcher a {
@@ -120,35 +101,11 @@
             text-decoration: underline;
         }
     </style>
-    <div class="header">
-        <div class="menu-icon" onclick="toggleMenu()">☰</div>
-        <div class="language-switcher">
-            <a href="index.html">EN</a> / 
-            <a href="indexFR.html">FR</a> / 
-            <a href="indexES.html">ES</a>
-        </div>
+    <div class="language-switcher">
+        <a href="index.html">EN</a> / 
+        <a href="indexFR.html">FR</a> / 
+        <a href="indexES.html">ES</a>
     </div>
-    <script>
-        function toggleMenu() {
-            const leftColumn = document.querySelector('.left-column');
-            leftColumn.style.display = leftColumn.style.display === 'block' ? 'none' : 'block';
-        }
-
-        document.querySelectorAll('.nav-item').forEach(item => {
-            item.addEventListener('click', function() {
-                const leftColumn = document.querySelector('.left-column');
-                leftColumn.style.display = 'none';
-            });
-        });
-
-        document.addEventListener('click', function(event) {
-            const leftColumn = document.querySelector('.left-column');
-            const menuIcon = document.querySelector('.menu-icon');
-            if (!leftColumn.contains(event.target) && !menuIcon.contains(event.target)) {
-                leftColumn.style.display = 'none';
-            }
-        });
-    </script>
 </head>
 <body>
     <div class="left-column">
@@ -359,59 +316,31 @@
         <section id="subitem10">
             <h2>Other Projects</h2>
             <h3>We Can't Live Without Cosmos</h3>
-            <div class="video-container"></div>
-                <iframe src="https://www.youtube.com/embed/2hPghT8tbLA" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-            </div>
+            <iframe width="100%" height="auto" src="https://www.youtube.com/embed/2hPghT8tbLA" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
             <div class="description">
-                <p>
-                    Two lifelong friends grow up with the shared dream of becoming cosmonauts. They easily pass the many physical tests they take during their cosmonaut training, and they even attempt to simulate the feel of flying through space by bouncing on their beds. They are ultimately selected for the next mission, with 1203 being launched solo and 1204 standing by as the reserve cosmonaut. The launch at first goes smoothly, but communication with the ship is soon lost; it is implied that 1203 dies in the vacuum of space. Inconsolable with grief, 1204 refuses to take off his spacesuit; an X-ray shows him curled up in a fetal position in the torso. Eventually, medical staff saw his helmet off, but find the suit empty except for a photo of the two friends in their spacesuits. They then look up to see a hole shaped like 1204's body in the ceiling above his bed, and 1204 is shown drifting suitless through space, where the still-suited 1203 grabs him by the arm.
-                    <br><br> Complete resonorization: Nicolás Gómez Salamanca
-                    <br> Director: Konstantin Bronzit
+                <p> <br> 
+                    Two lifelong friends grow up with the shared dream of becoming cosmonauts. They easily pass the many physical tests they take during their cosmonaut training, and they even attempt to simulate the feel of flying through space by bouncing on their beds. They are ultimately selected for the next mission, with 1203 being launched solo and 1204 standing by as the reserve cosmonaut. The launch at first goes smoothly, but communication with the ship is soon lost; it is implied that 1203 dies in the vacuum of space. Inconsolable with grief, 1204 refuses to take off his spacesuit; an X-ray shows him curled up in a fetal position in the torso. Eventually, medical staff saw his helmet off, but find the suit empty except for a photo of the two friends in their spacesuits. They then look up to see a hole shaped like 1204's body in the ceiling above his bed, and 1204 is shown drifting suitless through space, where the still-suited 1203 grabs him by the arm. 
+                    <br> <br> Complete resonorization: Nicolás Gómez Salamanca
+                    <br>  Director: Konstantin Bronzit
                     <br><br> 2022
                 </p>
             </div>
             <h3>Rage</h3>
-            <div class="video-container">
-                <iframe src="https://www.youtube.com/embed/_X6ebADh8t8" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-            </div>
+            <iframe width="100%" height="auto" src="https://www.youtube.com/embed/_X6ebADh8t8" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
             <div class="description">
-                <p>
-                    Sound Design: Nicolás Gómez Salamanca, Daniela Gutiérrez
-                    <br> Music Composition: Nicolás Gómez Salamanca, Daniela Gutiérrez
-                    <br> Director: Orly Lovett
+                <p> <br> Sound Design: Nicolás Gómez Salamanca, Daniela Gutiérrez
+                    <br>  Music Composition: Nicolás Gómez Salamanca, Daniela Gutiérrez
+                    <br>  Director: Orly Lovett
                     <br><br> 2023
                 </p>
             </div>
+            </div>
         </section>
-
-        <style>
-            .video-container {
-                position: relative;
-                padding-bottom: 56.25%; /* 16:9 aspect ratio */
-                height: 0;
-                overflow: hidden;
-                max-width: 100%;
-                background: #000;
-            }
-            .video-container iframe {
-                position: absolute;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-            }
-            .description {
-                padding: 10px;
-                font-size: 14px;
-            }
-        </style>
         <section id="item3">
             <h2>Electroacoustic Composition</h2>
             <section id="subitem11">
                 <h3>Itinéraire Musical</h3>
-                <div class="video-container"></div>
-                    <iframe src="https://www.youtube.com/embed/XBmXaerJkFg" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-                </div>
+                <iframe width="560" height="315" src="https://www.youtube.com/embed/XBmXaerJkFg" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
                 <div class="description">
                     <p><em>Itinéraire musical</em> is a musical project in which the artist combines the acoustic richness of the violin with a deep dialogue with natural species, aiming to revive and reflect on spaces previously inhabited by the composer. This project is a sonic exploration in the Colombian jungle, a space that becomes a stage for encounters and communication between the birds that inhabit it and the performer.
                         <br> <br>
@@ -430,39 +359,15 @@
         <section id="item4">
             <h2>Instrument Making</h2>
             <section id="subitem12">
-                <h3>The Eye</h3>
-                <div class="video-container">
-                    <iframe src="https://www.youtube.com/embed/Xfww_vZf7-Y" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-                </div>
-                <div class="description">
-                    <p>The Eye is a digital instrument primarily controlled by a photosensitive sensor, which represents the eye's retina. When light approaches or moves away from the sensor, it alters the instrument's frequencies and the LFO. In addition to the photosensitive sensor, it has three other controls: a piezoelectric sensor that changes the sound depending on the pressure applied to it, and two additional controllers that also influence various aspects of the sound.
-                        <br><br>
-                        This instrument is based on a Teensy board, programmed through MaxMSP. With this instrument, I aimed to explore unconventional elements for musical creation, such as light and the piezoelectric sensor that measures the force with which it is pressed.
-                    </p>
-                </div>
-            </section>
-        </section>
-        <style>
-            .video-container {
-                position: relative;
-                padding-bottom: 56.25%; /* 16:9 aspect ratio */
-                height: 0;
-                overflow: hidden;
-                max-width: 100%;
-                background: #000;
-            }
-            .video-container iframe {
-                position: absolute;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-            }
-            .description {
-                padding: 10px;
-                font-size: 14px;
-            }
-        </style>
+            <h3>The Eye</h3>
+            <iframe width="560" height="315" src="https://www.youtube.com/embed/Xfww_vZf7-Y" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+            <div class="description">
+                <p>The Eye is a digital instrument primarily controlled by a photosensitive sensor, which represents the eye's retina. When light approaches or moves away from the sensor, it alters the instrument's frequencies and the LFO. In addition to the photosensitive sensor, it has three other controls: a piezoelectric sensor that changes the sound depending on the pressure applied to it, and two additional controllers that also influence various aspects of the sound.
+    <br><br>
+    This instrument is based on a Teensy board, programmed through MaxMSP. With this instrument, I aimed to explore unconventional elements for musical creation, such as light and the piezoelectric sensor that measures the force with which it is pressed.</p>
+    </div>
+    </section>
+    </section>
     <section id="item5">
         <h2>Information & Contact</h2>
         <div style="max-width: 600px; padding: 20px; box-sizing: border-box; text-align: left;">
