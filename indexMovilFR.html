@@ -8,15 +8,16 @@
     <style>
         body {
             display: flex;
-            flex-direction: column;
             height: 100vh;
             margin: 0;
             font-family: 'Helvetica Neue', sans-serif;
             font-size: 16px;
+            background-color: #000000; /* Set background to black */
+            color: #ffffff; /* Set font color to white */
         }
         .header {
             width: 100%;
-            background-color: #ffffff;
+            background-color: #000000;
             padding: 10px;
             box-sizing: border-box;
             display: flex;
@@ -33,7 +34,7 @@
         }
         .left-column {
             width: 250px;
-            background-color: #ffffff;
+            background-color: #000000;
             padding: 20px;
             box-sizing: border-box;
             position: fixed;
@@ -64,8 +65,8 @@
         .left-column ul li a.highlight span {
             color: white;
             text-decoration: underline;
-            text-decoration-color: black;
-            background-color: rgb(8, 0, 255);
+            text-decoration-color: rgb(255, 255, 255);
+            background-color: rgb(255, 0, 0);
             padding-right: 5px;
         }
         .left-column ul ul {
@@ -80,7 +81,7 @@
             padding: 0;
             box-sizing: border-box;
             width: 100%;
-            background-color: #ffffff;
+            background-color: #000000;
             overflow-y: auto;
             scroll-snap-type: y mandatory;
             margin-top: 50px; /* Adjust for the fixed header height */
@@ -115,7 +116,7 @@
         .language-switcher a {
             margin: 0 5px;
             text-decoration: none;
-            color: black;
+            color: rgb(255, 255, 255);
         }
         .language-switcher a:hover {
             text-decoration: underline;
