@@ -148,7 +148,7 @@
 <body>
     <!-- Video background -->
     <video id="bg-video" autoplay muted loop playsinline>
-        <source id="bg-video-source" src="" type="video/mp4">
+        <source id="bg-video-source" src="" type="video/webm">
         Your browser does not support the video tag.
     </video>
     <!-- Optional overlay for readability -->
@@ -494,10 +494,10 @@ Professionally, he works as a sound designer and sound editor for film, contribu
 
     document.addEventListener('DOMContentLoaded', function() {
         const videos = [
-            "video1.mp4",
-            "video2.mp4",
-            "video3.mp4",
-            "video4.mp4"
+            "video1.webm",
+            "video2.webm",
+            "video3.webm",
+            "video4.webm"
         ];
         const randomVideo = videos[Math.floor(Math.random() * videos.length)];
         document.getElementById('bg-video-source').src = randomVideo;
