@@ -146,11 +146,24 @@
     </div>
 </head>
 <body>
-    <!-- Video background -->
-    <video id="bg-video" autoplay muted loop playsinline>
-        <source id="bg-video-source" src="" type="video/webm">
-        Your browser does not support the video tag.
-    </video>
+    <script>
+        // Selección aleatoria de video de fondo antes de cargar el video
+        (function() {
+            const videos = [
+                "video1.webm",
+                "video2.webm",
+                "video3.webm",
+                "video4.webm"
+            ];
+            const randomVideo = videos[Math.floor(Math.random() * videos.length)];
+            document.write(
+                `<video id="bg-video" autoplay muted loop playsinline>
+                    <source id="bg-video-source" src="${randomVideo}" type="video/webm">
+                    Your browser does not support the video tag.
+                </video>`
+            );
+        })();
+    </script>
     <!-- Optional overlay for readability -->
     <div class="background-overlay"></div>
     <div class="left-column">
