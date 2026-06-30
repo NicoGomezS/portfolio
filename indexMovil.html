@@ -64,24 +64,21 @@
     font-size: clamp(2.4rem, 11vw, 3.2rem);
     line-height: 1.04;
     text-shadow: var(--glow);
-    opacity: 0; transform: translateY(14px);
-    animation: rise 0.6s ease forwards;
+    min-height: 2.18em; /* reserva espacio para que no salte el layout mientras se tipea */
   }
-  .bio-role {
-    font-size: clamp(1.1rem, 5vw, 1.3rem);
-    color: var(--accent-soft);
-    margin-top: 0.5rem;
-    letter-spacing: 0.02em;
-    opacity: 0; transform: translateY(14px);
-    animation: rise 0.6s ease forwards 0.12s;
+  .typing-cursor {
+    display: inline-block; width: 0.5ch; height: 0.9em;
+    background: currentColor;
+    animation: blink 0.8s steps(2) infinite;
+    margin-left: 0.08em; vertical-align: text-bottom;
   }
-  @keyframes rise { to { opacity: 1; transform: translateY(0); } }
 
   .bio-text {
     margin-top: 1.6rem;
     opacity: 0; transform: translateY(14px);
-    animation: rise 0.6s ease forwards 0.24s;
+    transition: opacity 0.6s ease, transform 0.6s ease;
   }
+  .bio-text.visible { opacity: 1; transform: translateY(0); }
   .bio-text p {
     font-size: clamp(1.02rem, 4.4vw, 1.16rem);
     line-height: 1.65;
@@ -95,8 +92,9 @@
     border-top: 1px solid var(--accent-faint);
     padding-top: 1rem;
     opacity: 0; transform: translateY(14px);
-    animation: rise 0.6s ease forwards 0.34s;
+    transition: opacity 0.6s ease, transform 0.6s ease;
   }
+  .credit-list.visible { opacity: 1; transform: translateY(0); }
   .credit-row {
     display: flex; justify-content: space-between; gap: 1rem;
     font-size: 0.92rem; padding: 0.4rem 0;
@@ -122,16 +120,18 @@
   .toc-item {
     display: flex; align-items: baseline; gap: 0.9rem;
     text-decoration: none; color: var(--accent);
-    padding: 1.1rem 0.2rem;
-    border-bottom: 2px solid var(--accent-faint);
-    transition: padding-left 0.15s ease, border-color 0.15s ease;
-    animation: toc-float 5s ease-in-out infinite;
+    padding: 0.3rem 0.2rem;
+    margin-bottom: 1.7rem;
+    text-shadow: 0 0 6px rgba(178,255,89,0.35);
+    animation: toc-float 3s ease-in-out infinite;
   }
-  .toc-item:nth-child(2) { animation-duration: 6.2s; animation-delay: -1.5s; }
-  .toc-item:nth-child(3) { animation-duration: 5.6s; animation-delay: -3s; }
-  .toc-item:nth-child(4) { animation-duration: 6.8s; animation-delay: -0.8s; }
-  @keyframes toc-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
-  .toc-item:active { padding-left: 0.7rem; border-color: var(--accent); }
+  .toc-item:last-child { margin-bottom: 0; }
+  .toc-item:nth-child(1) { animation-delay: 0s; }
+  .toc-item:nth-child(2) { animation-delay: 0.3s; }
+  .toc-item:nth-child(3) { animation-delay: 0.6s; }
+  .toc-item:nth-child(4) { animation-delay: 0.9s; }
+  @keyframes toc-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
+  .toc-item:active { opacity: 0.72; }
   .toc-index { font-size: 1rem; color: var(--accent-dim); flex-shrink: 0; }
   .toc-label { font-size: clamp(1.4rem, 7vw, 1.8rem); line-height: 1.1; flex: 1; }
   .toc-arrow { font-size: 1.3rem; color: var(--accent-dim); flex-shrink: 0; transition: transform 0.15s ease; }
@@ -270,7 +270,7 @@
     <span class="drift-symbol" style="top:60%; left:4%; font-size:1.1rem; animation: drift-b 7.5s ease-in-out infinite;">+</span>
     <span class="drift-symbol" style="top:85%; right:14%; font-size:1.3rem; animation: drift-c 8.5s ease-in-out infinite;">✦</span>
 
-    <h1 class="bio-name">Nicolás<br>Gómez Salamanca</h1>
+    <h1 class="bio-name"><span id="bio-line1"></span><br><span id="bio-line2"></span><span class="typing-cursor"></span></h1>
 
     <div class="bio-text">
       <p>Hello! I'm Nicolás Gómez Salamanca, a Colombian sound artist based in France.</p>
@@ -537,6 +537,31 @@
 </div>
 
 <script>
+  /* ================================================================
+     0. TIPEO DEL NOMBRE — como en la landing original, sin gate de click
+  ================================================================ */
+  (function typeNameAndReveal() {
+    const line1 = document.getElementById('bio-line1');
+    const line2 = document.getElementById('bio-line2');
+    const text1 = "Nicolás";
+    const text2 = "Gómez Salamanca";
+    let i = 0, j = 0;
+
+    function typeLine1() {
+      if (i < text1.length) { line1.textContent += text1[i++]; setTimeout(typeLine1, 75); }
+      else { setTimeout(typeLine2, 160); }
+    }
+    function typeLine2() {
+      if (j < text2.length) { line2.textContent += text2[j++]; setTimeout(typeLine2, 75); }
+      else { revealRest(); }
+    }
+    function revealRest() {
+      setTimeout(() => document.querySelector('.bio-text').classList.add('visible'), 150);
+      setTimeout(() => document.querySelector('.credit-list').classList.add('visible'), 350);
+    }
+    typeLine1();
+  })();
+
   /* ================================================================
      1. SUB-PAGES — abrir / cerrar con transición de fade
      2. PILL NAV — saltar dentro de la sub-page
