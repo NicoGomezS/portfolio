@@ -1,315 +1,320 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Nicolás Gómez Salamanca</title>
-  <style>
-    /* ================================================================
-       RESET & BASE
-       (sin cursor personalizado — no aplica en pantallas táctiles)
-    ================================================================ */
-    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-    @font-face {
-      font-family: "VT323";
-      src: url("VT323-Regular.ttf") format("truetype");
-      font-weight: normal; font-style: normal;
-    }
-    html, body {
-      height: 100%; width: 100%;
-      overflow-x: hidden; overflow-y: auto;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #0d47ff; color: #b5f809;
-    }
-    body { position: relative; }
-    /* Mientras se ven los Nicolás voladores, bloqueamos el scroll/zoom nativo
-       para que arrastrar el dedo controle el sonido y no la página */
-    body.landing-hidden.nicolas-active { touch-action: none; overflow: hidden; height: 100%; }
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Nicolás Gómez Salamanca</title>
+<style>
+  /* ================================================================
+     RESET & BASE — verde sobre azul, VT323 en todo, sin redondeos
+  ================================================================ */
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  @font-face {
+    font-family: "VT323";
+    src: url("VT323-Regular.ttf") format("truetype");
+    font-weight: normal; font-style: normal;
+  }
+  :root {
+    --bg: #0d47ff;
+    --accent: #b2ff59;
+    --accent-soft: rgba(178,255,89,0.78);
+    --accent-dim: rgba(178,255,89,0.45);
+    --accent-faint: rgba(178,255,89,0.18);
+    --glow: 0 0 14px rgba(178,255,89,0.25);
+  }
+  html, body { width: 100%; background: var(--bg); color: var(--accent); overflow-x: hidden; }
+  body {
+    font-family: "VT323", monospace;
+    position: relative;
+  }
+  /* textura de scanlines sutil — toque CRT/terminal, no decorativo genérico */
+  body::before {
+    content: "";
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(178,255,89,0.025) 0px,
+      rgba(178,255,89,0.025) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+  }
+  a { color: inherit; }
 
-    /* ================================================================
-       LANDING PAGE
-    ================================================================ */
-    #landing-page {
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      display: flex; justify-content: center; align-items: center;
-    }
-    .container { text-align: center; padding: 1.6rem; width: 100%; max-width: 90%; margin: 0 auto; }
-    #name-link {
-      color: #b2ff59; text-decoration: none; background: #0d47ff;
-      padding: 2px 10px; border-radius: 6px; display: inline-block;
-      position: relative; z-index: 10; transition: transform 0.05s linear;
-    }
-    .name-hint {
-      position: fixed; pointer-events: none;
-      display: flex; flex-direction: column; align-items: center; gap: 4px;
-      font-family: "VT323", monospace; opacity: 0; z-index: 9998; transition: opacity 0.3s ease;
-    }
-    .arrow-container { display: flex; align-items: center; justify-content: center; margin-bottom: -8px; animation: tremble 1.2s ease-in-out infinite; }
-    .hint-arrow { width: 55px; height: auto; stroke: #b2ff59; stroke-width: 2.8; fill: none; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 4px rgba(178,255,89,0.4)); }
-    .hint-arrow path { stroke-dasharray: 260; stroke-dashoffset: 260; animation: draw-arrow 1.4s ease forwards; }
-    .hint-arrow .arrow-head { stroke-dasharray: 70; stroke-dashoffset: 70; animation: draw-arrow 1.4s ease forwards 0.8s; }
-    @keyframes draw-arrow { to { stroke-dashoffset: 0; } }
-    @keyframes tremble {
-      0%, 100% { transform: translate(0,0); }
-      20% { transform: translate(0.5px,-0.3px); }
-      40% { transform: translate(-0.5px,0.3px); }
-      60% { transform: translate(0.3px,0.4px); }
-      80% { transform: translate(-0.4px,-0.3px); }
-    }
-    .hint-gif {
-      width: auto; height: auto;
-      max-width: clamp(90px,24vw,150px); max-height: clamp(90px,24vw,150px);
-      filter: drop-shadow(0 0 4px rgba(178,255,89,0.4));
-      transform: rotate(-15deg); margin-top: -5px;
-    }
+  /* ================================================================
+     SÍMBOLOS FLOTANTES DECORATIVOS — sutil, temático (no Nicolás)
+  ================================================================ */
+  .drift-symbol {
+    position: absolute; color: var(--accent); opacity: 0.18;
+    font-size: 1.6rem; pointer-events: none; user-select: none; z-index: 0;
+  }
+  @keyframes drift-a { 0%,100% { transform: translate(0,0) rotate(0deg); } 50% { transform: translate(6px,-10px) rotate(12deg); } }
+  @keyframes drift-b { 0%,100% { transform: translate(0,0) rotate(0deg); } 50% { transform: translate(-8px,8px) rotate(-10deg); } }
+  @keyframes drift-c { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(4px,6px) scale(1.15); } }
 
-    /* Texto sutil recomendando desktop — sólo visible en la landing */
-    .desktop-hint-text {
-      position: fixed;
-      bottom: max(14px, env(safe-area-inset-bottom));
-      left: 50%; transform: translateX(-50%);
-      font-family: "VT323", monospace;
-      font-size: 0.82rem;
-      letter-spacing: 0.02em;
-      opacity: 0.42;
-      text-align: center;
-      width: 86%;
-      max-width: 360px;
-      line-height: 1.4;
-      pointer-events: none;
-      z-index: 5;
-    }
+  /* ================================================================
+     HERO / BIO — entrada directa, sin landing
+  ================================================================ */
+  .bio {
+    position: relative; z-index: 1;
+    padding: calc(2.6rem + env(safe-area-inset-top, 0)) 1.4rem 1rem;
+    overflow: hidden;
+  }
+  .bio-name {
+    font-size: clamp(2.4rem, 11vw, 3.2rem);
+    line-height: 1.04;
+    text-shadow: var(--glow);
+    opacity: 0; transform: translateY(14px);
+    animation: rise 0.6s ease forwards;
+  }
+  .bio-role {
+    font-size: clamp(1.1rem, 5vw, 1.3rem);
+    color: var(--accent-soft);
+    margin-top: 0.5rem;
+    letter-spacing: 0.02em;
+    opacity: 0; transform: translateY(14px);
+    animation: rise 0.6s ease forwards 0.12s;
+  }
+  @keyframes rise { to { opacity: 1; transform: translateY(0); } }
 
-    /* ================================================================
-       PÁGINA INTERNA — contenedor general
-    ================================================================ */
-    .internal-page {
-      display: none; position: fixed; inset: 0; background: #0d47ff; color: #b2ff59;
-      overflow-y: auto; z-index: 200;
-    }
-    .internal-page.show { display: block; }
-    .internal-page__content {
-      padding: 2.2rem 1.4rem 6.5rem; /* padding-bottom deja espacio para el tab-bar fijo */
-      max-width: 640px; margin: 0 auto;
-    }
-    .page-left-column h2 {
-      font-family: "VT323", monospace;
-      font-size: clamp(1.7rem, 8vw, 2.4rem);
-      margin-bottom: 1.3rem; line-height: 1.2;
-    }
-    .page-left-column p {
-      font-family: "VT323", monospace;
-      font-size: clamp(0.95rem, 4.2vw, 1.15rem);
-      line-height: 1.75; opacity: 0.95; margin-bottom: 1rem;
-    }
-    .word-note { transition: color 0.15s ease, text-shadow 0.15s ease; }
-    .word-note.tapped { color: #e8ff99; text-shadow: 0 0 6px rgba(178,255,89,0.5); }
+  .bio-text {
+    margin-top: 1.6rem;
+    opacity: 0; transform: translateY(14px);
+    animation: rise 0.6s ease forwards 0.24s;
+  }
+  .bio-text p {
+    font-size: clamp(1.02rem, 4.4vw, 1.16rem);
+    line-height: 1.65;
+    color: var(--accent-soft);
+    margin-bottom: 0.9rem;
+  }
+  .bio-text strong { color: var(--accent); }
 
-    /* ================================================================
-       TAB BAR FIJO — reemplaza los links flotantes de la versión desktop
-       Siempre visible, sin importar cuánto se haya scrolleado el texto.
-    ================================================================ */
-    .mobile-nav-bar {
-      position: fixed; left: 0; bottom: 0; width: 100%;
-      display: flex;
-      background: #0d47ff;
-      border-top: 1px solid rgba(178,255,89,0.3);
-      z-index: 250;
-      padding-bottom: env(safe-area-inset-bottom, 0);
-      box-shadow: 0 -8px 24px rgba(0,0,0,0.25);
-    }
-    .mobile-nav-link {
-      flex: 1; text-align: center;
-      padding: 0.95rem 0.3rem;
-      font-family: "VT323", monospace;
-      font-size: clamp(0.85rem, 3.6vw, 1.05rem);
-      color: #b2ff59; text-decoration: none;
-      border-right: 1px solid rgba(178,255,89,0.15);
-      transition: opacity 0.5s ease-in, background 0.15s, color 0.15s;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    .mobile-nav-link:last-child { border-right: none; }
-    .mobile-nav-link:active { background: rgba(178,255,89,0.12); color: #e8ff99; }
-    .mobile-nav-link.fade-out { opacity: 0; }
-    .mobile-nav-link.fade-in { animation: shake-wake 0.4s ease-out; opacity: 1; }
-    @keyframes shake-wake { 0% { opacity:0; transform:translateX(-8px);} 25% { transform:translateX(8px);} 50% { transform:translateX(-6px);} 75% { transform:translateX(4px);} 100% { opacity:1; transform:translateX(0);} }
+  .credit-list {
+    margin-top: 1.5rem;
+    border-top: 1px solid var(--accent-faint);
+    padding-top: 1rem;
+    opacity: 0; transform: translateY(14px);
+    animation: rise 0.6s ease forwards 0.34s;
+  }
+  .credit-row {
+    display: flex; justify-content: space-between; gap: 1rem;
+    font-size: 0.92rem; padding: 0.4rem 0;
+    border-bottom: 1px dotted var(--accent-faint);
+    color: var(--accent-soft);
+  }
+  .credit-row span:last-child { text-align: right; color: var(--accent); white-space: nowrap; }
 
-    /* ================================================================
-       NICOLÁS VOLADORES
-    ================================================================ */
-    .landing-hidden #landing-page { display: none; }
-    .landing-hidden .floating-nicolas { display: block; }
-    .floating-nicolas {
-      position: fixed; font-family: "VT323", monospace; color: #b2ff59;
-      text-decoration: none; text-shadow: 0 0 6px rgba(178,255,89,0.4);
-      z-index: 100; transition: left 0.04s linear, top 0.04s linear, transform 0.08s ease;
-      white-space: nowrap; padding: 14px 18px; margin: -14px -18px; background: transparent;
-    }
-    .floating-nicolas:active { color: #e8ff99; transform: scale(1.15) !important; z-index: 1000; text-shadow: 0 0 10px #b5ff66; }
-    .fade-out-click { opacity: 0; transform: scale(0.96); pointer-events: none; }
-    .page-fade-overlay { position: fixed; inset: 0; background: #ffffff; opacity: 0; pointer-events: none; transition: opacity 0.22s ease; z-index: 9999; }
-    .page-fade-overlay.active { opacity: 1; }
+  /* ================================================================
+     TOC — los 4 links, estilo índice de catálogo, no "tab bar"
+  ================================================================ */
+  .toc {
+    position: relative; z-index: 1;
+    padding: 2rem 1.4rem 3rem;
+  }
+  .toc-heading {
+    font-size: 0.85rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent-dim);
+    margin-bottom: 1rem;
+  }
+  .toc-item {
+    display: flex; align-items: baseline; gap: 0.9rem;
+    text-decoration: none; color: var(--accent);
+    padding: 1.1rem 0.2rem;
+    border-bottom: 2px solid var(--accent-faint);
+    transition: padding-left 0.15s ease, border-color 0.15s ease;
+    animation: toc-float 5s ease-in-out infinite;
+  }
+  .toc-item:nth-child(2) { animation-duration: 6.2s; animation-delay: -1.5s; }
+  .toc-item:nth-child(3) { animation-duration: 5.6s; animation-delay: -3s; }
+  .toc-item:nth-child(4) { animation-duration: 6.8s; animation-delay: -0.8s; }
+  @keyframes toc-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+  .toc-item:active { padding-left: 0.7rem; border-color: var(--accent); }
+  .toc-index { font-size: 1rem; color: var(--accent-dim); flex-shrink: 0; }
+  .toc-label { font-size: clamp(1.4rem, 7vw, 1.8rem); line-height: 1.1; flex: 1; }
+  .toc-arrow { font-size: 1.3rem; color: var(--accent-dim); flex-shrink: 0; transition: transform 0.15s ease; }
+  .toc-item:active .toc-arrow { transform: translateX(4px); }
 
-    @keyframes float-up { 0% { transform: translateY(0) rotateZ(0deg); opacity: 0.3; } 10% { opacity: 0.9; } 90% { opacity: 0.9; } 100% { transform: translateY(-70px) rotateZ(8deg); opacity: 0.4; } }
-    @keyframes float-down { 0% { transform: translateY(0) rotateZ(0deg); opacity: 0.3; } 10% { opacity: 0.9; } 90% { opacity: 0.9; } 100% { transform: translateY(70px) rotateZ(-8deg); opacity: 0.4; } }
-    @keyframes float-left { 0% { transform: translateX(0) scale(1); opacity: 0.3; } 10% { opacity: 0.9; } 90% { opacity: 0.9; } 100% { transform: translateX(-80px) scale(0.8); opacity: 0.5; } }
-    @keyframes float-right { 0% { transform: translateX(0) scale(1); opacity: 0.3; } 10% { opacity: 0.9; } 90% { opacity: 0.9; } 100% { transform: translateX(80px) scale(0.8); opacity: 0.5; } }
-    @keyframes pulse-fade { 0% { transform: scale(0.8); opacity: 0.3; } 10% { opacity: 0.9; } 50% { transform: scale(1.1); } 90% { opacity: 0.9; } 100% { transform: scale(0.9); opacity: 0.5; } }
-    @keyframes spin-rotate { 0% { transform: rotateZ(0deg) scale(1); opacity: 0.3; } 10% { opacity: 0.9; } 90% { opacity: 0.9; } 100% { transform: rotateZ(360deg) scale(0.9); opacity: 0.5; } }
-    @keyframes wave-motion { 0% { transform: translateX(0) translateY(0) scale(1); opacity: 0.3; } 10% { opacity: 0.9; } 50% { transform: translateX(40px) translateY(-15px) scale(1.1); } 90% { opacity: 0.9; } 100% { transform: translateX(-40px) translateY(25px) scale(0.8); opacity: 0.5; } }
-    @keyframes bounce-zoom { 0% { transform: scale(0.6) rotateZ(-180deg); opacity: 0.3; } 10% { opacity: 0.9; } 50% { transform: scale(1.2); } 90% { opacity: 0.9; } 100% { transform: scale(0.8) rotateZ(180deg); opacity: 0.5; } }
+  /* ================================================================
+     SUB-PAGES — overlay completo, deslizable, una por sección
+  ================================================================ */
+  .sub-page {
+    display: none; position: fixed; inset: 0; background: var(--bg); color: var(--accent);
+    z-index: 300; overflow-y: auto; overflow-x: hidden;
+  }
+  .sub-page.show { display: block; }
+  .sub-page-header {
+    position: sticky; top: 0; background: var(--bg); z-index: 10;
+    padding: calc(1rem + env(safe-area-inset-top, 0)) 1.2rem 0.7rem;
+    border-bottom: 1px solid var(--accent-faint);
+  }
+  .sub-page-header-top { display: flex; align-items: center; gap: 1.1rem; margin-bottom: 0.7rem; }
+  .back-btn {
+    background: transparent; border: 1px solid var(--accent-dim); color: var(--accent);
+    font-family: "VT323", monospace; font-size: 1.2rem; padding: 0.3rem 0.85rem;
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .back-btn:active { background: var(--accent-faint); }
+  .sub-page-title { font-size: clamp(1.5rem, 7vw, 2.1rem); line-height: 1; }
 
-    /* ================================================================
-       TÍTULO — animación de tipeo
-    ================================================================ */
-    h1 { font-family: "VT323", monospace; font-size: clamp(1.9rem,8vw,2.8rem); line-height: 1.15; margin-bottom: 1rem; min-height: 4rem; }
-    h1.fade-out { opacity: 0; }
-    .typing-cursor { display: inline-block; width: 0.8ch; background: currentColor; animation: blink 0.8s steps(2) infinite; margin-left: 0.15rem; vertical-align: bottom; }
-    @keyframes blink { 0%, 50% { opacity: 1; } 50.1%, 100% { opacity: 0; } }
+  .pill-nav { display: flex; gap: 0.4rem; overflow-x: auto; padding-bottom: 0.2rem; scrollbar-width: none; }
+  .pill-nav::-webkit-scrollbar { display: none; }
+  .pill-nav a {
+    text-decoration: none; color: var(--accent-soft); font-size: 0.92rem;
+    border: 1px solid var(--accent-faint); padding: 0.15rem 0.6rem; white-space: nowrap; flex-shrink: 0;
+  }
+  .pill-nav a:active { background: var(--accent-faint); color: var(--accent); }
 
-    /* ================================================================
-       SUB-PAGES
-    ================================================================ */
-    .sub-page {
-      display: none; position: fixed; inset: 0; background: #0d47ff; color: #b2ff59;
-      z-index: 300; overflow-y: auto; overflow-x: hidden; font-family: "VT323", monospace;
-    }
-    .sub-page.show { display: block; }
-    .sub-page-header {
-      position: sticky; top: 0; background: #0d47ff; z-index: 10;
-      padding: 1.1rem 1.2rem 0.7rem; border-bottom: 1px solid rgba(178,255,89,0.25);
-    }
-    .sub-page-header-top { display: flex; align-items: center; gap: 1.2rem; margin-bottom: 0.7rem; }
-    .sub-page-title { font-family: "VT323", monospace; font-size: clamp(1.5rem,7vw,2.2rem); line-height: 1; color: #b2ff59; margin: 0; }
-    .back-btn {
-      background: transparent; border: 1px solid rgba(178,255,89,0.65); color: #b2ff59;
-      font-family: "VT323", monospace; font-size: 1.25rem; padding: 0.35rem 0.9rem;
-      letter-spacing: 0.03em; white-space: nowrap; flex-shrink: 0;
-    }
-    .back-btn:active { background: rgba(178,255,89,0.15); }
+  .sub-page-body { padding: 1.5rem 1.2rem 3.5rem; }
 
-    .film-nav-pills { display: flex; gap: 0.4rem; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 0.3rem; -webkit-overflow-scrolling: touch; }
-    .film-nav-pills::-webkit-scrollbar { display: none; }
-    .film-pill {
-      color: #b2ff59; text-decoration: none; font-family: "VT323", monospace; font-size: 0.95rem;
-      border: 1px solid rgba(178,255,89,0.3); padding: 0.15rem 0.6rem; white-space: nowrap; flex-shrink: 0;
-    }
-    .film-pill:active { background: rgba(178,255,89,0.15); }
+  /* Entrada de proyecto — título + texto + media temblando, todo en una columna */
+  .entry {
+    padding-bottom: 2.6rem; margin-bottom: 2.6rem;
+    border-bottom: 1px solid var(--accent-faint);
+  }
+  .entry:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 1rem; }
+  .entry h3 { font-size: clamp(1.6rem, 7.5vw, 2.1rem); line-height: 1.1; margin-bottom: 0.9rem; }
+  .entry h4 { font-size: clamp(1.2rem, 5.5vw, 1.4rem); color: var(--accent-soft); margin: 1.2rem 0 0.4rem; }
+  .entry p { font-size: clamp(0.94rem, 4vw, 1.04rem); line-height: 1.7; color: var(--accent-soft); margin-bottom: 0.7rem; }
+  .entry .credits { font-size: 0.86rem; opacity: 0.85; line-height: 1.8; }
 
-    .sub-page-body { padding: 1.4rem 1.2rem 3rem; max-width: 640px; margin: 0 auto; }
+  /* ================================================================
+     MEDIA TEMBLANDO — el mismo carácter "vivo" del sitio de escritorio
+  ================================================================ */
+  @keyframes media-tremble {
+    0%   { transform: translate(0,0) rotate(0deg) scale(1); }
+    15%  { transform: translate(3px,-3px) rotate(0.5deg) scale(0.998); }
+    31%  { transform: translate(4px,-1.5px) rotate(0.7deg) scale(1.003); }
+    48%  { transform: translate(2.5px,3px) rotate(0.4deg) scale(1.002); }
+    64%  { transform: translate(3px,2.5px) rotate(0.5deg) scale(0.998); }
+    80%  { transform: translate(3px,1px) rotate(0.4deg) scale(1.002); }
+    100% { transform: translate(0,0) rotate(0deg) scale(1); }
+  }
+  .tremble { animation: media-tremble 7s ease-in-out infinite; transform-origin: center center; margin-top: 1rem; }
+  .tremble iframe { width: 100%; aspect-ratio: 16/9; border: 1px solid var(--accent-faint); display: block; }
+  .tremble img { width: 100%; display: block; border: 1px solid var(--accent-faint); }
+  .entry:nth-child(odd)  .tremble { animation-duration: 6.4s; animation-delay: -1.2s; }
+  .entry:nth-child(even) .tremble { animation-duration: 8.1s; animation-delay: -3s; }
 
-    .film-entry { display: flex; flex-direction: column; gap: 1.4rem; padding-bottom: 2.6rem; margin-bottom: 2.6rem; border-bottom: 1px solid rgba(178,255,89,0.15); }
-    .film-entry:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 1rem; }
-    .film-left h3 { font-size: clamp(1.5rem,6.5vw,2rem); margin-bottom: 0.9rem; line-height: 1.15; color: #b2ff59; }
-    .film-left h4 { font-size: clamp(1.15rem,5vw,1.4rem); margin-bottom: 0.4rem; margin-top: 1.2rem; color: #b2ff59; }
-    .film-left p { font-size: clamp(0.88rem,3.8vw,1.02rem); line-height: 1.7; opacity: 0.9; margin-bottom: 0.7rem; }
-    .film-right { display: flex; flex-direction: column; gap: 1.4rem; }
+  /* Galería de Luthería */
+  .gallery { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; margin-top: 1rem; }
+  .gallery .tremble { margin-top: 0; }
+  .gallery .tremble:nth-child(1) { animation-duration: 6.1s; animation-delay: 0s; }
+  .gallery .tremble:nth-child(2) { animation-duration: 7.6s; animation-delay: -2.1s; }
+  .gallery .tremble:nth-child(3) { animation-duration: 5.8s; animation-delay: -1.3s; }
+  .gallery .tremble:nth-child(4) { animation-duration: 7.2s; animation-delay: -3.4s; }
+  @media (max-width: 360px) { .gallery { grid-template-columns: 1fr; } }
 
-    /* ================================================================
-       MEDIA TREMBLING
-    ================================================================ */
-    @keyframes media-float {
-      0%   { transform: translate(0px,0px)    rotate(0deg)    scale(1);     }
-      15%  { transform: translate(3px,-3px)   rotate(0.5deg)  scale(0.998); }
-      31%  { transform: translate(4px,-1.5px) rotate(0.7deg)  scale(1.003); }
-      48%  { transform: translate(2.5px,3px)  rotate(0.4deg)  scale(1.002); }
-      64%  { transform: translate(3px,2.5px)  rotate(0.5deg)  scale(0.998); }
-      80%  { transform: translate(3px,1px)    rotate(0.4deg)  scale(1.002); }
-      100% { transform: translate(0px,0px)    rotate(0deg)    scale(1);     }
-    }
-    .media-tremble { animation: media-float 7s ease-in-out infinite; transform-origin: center center; }
-    .media-tremble iframe { width: 100%; aspect-ratio: 16/9; border: 1px solid rgba(178,255,89,0.2); display: block; box-shadow: 0 0 25px rgba(178,255,89,0.06), 0 0 8px rgba(0,0,0,0.4); }
-    .media-tremble img { width: 100%; display: block; border: 1px solid rgba(178,255,89,0.2); box-shadow: 0 0 25px rgba(178,255,89,0.06), 0 0 8px rgba(0,0,0,0.4); }
+  /* ================================================================
+     REPRODUCTOR DE AUDIO — Electroacoustic, carga perezosa
+  ================================================================ */
+  .audio-player {
+    margin-top: 1rem;
+    border: 1px solid var(--accent-faint);
+    padding: 1.1rem 1.15rem;
+    background: rgba(0,0,0,0.14);
+  }
+  .audio-track-name { font-size: 0.86rem; opacity: 0.6; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .audio-controls { display: flex; align-items: center; gap: 0.85rem; }
+  .audio-play-btn {
+    width: 2.5rem; height: 2.5rem; flex-shrink: 0;
+    border: 1px solid var(--accent-dim); background: transparent; color: var(--accent);
+    font-family: "VT323", monospace; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; padding: 0;
+  }
+  .audio-play-btn:active { background: var(--accent-faint); }
+  .audio-play-btn.loading { opacity: 0.6; animation: pulse 0.6s steps(2) infinite; }
+  @keyframes pulse { 0%,50%{opacity:0.35;} 50.1%,100%{opacity:0.7;} }
+  .audio-seek-wrap { flex: 1; }
+  .audio-seek {
+    -webkit-appearance: none; appearance: none; width: 100%; height: 3px;
+    background: linear-gradient(to right, var(--accent) var(--fill,0%), var(--accent-faint) var(--fill,0%));
+    outline: none; border: none; display: block; margin-bottom: 0.4rem;
+  }
+  .audio-seek::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; background: var(--accent); border-radius: 50%; margin-top: -6.5px; }
+  .audio-seek::-moz-range-thumb { width: 16px; height: 16px; background: var(--accent); border-radius: 50%; border: none; }
+  .audio-seek::-moz-range-track { height: 3px; background: var(--accent-faint); }
+  .audio-time { font-size: 0.78rem; opacity: 0.55; text-align: right; }
 
-    .single-entry { display: flex; flex-direction: column; gap: 1.6rem; }
-    .single-entry-left h3 { font-size: clamp(1.5rem,6.5vw,2rem); margin-bottom: 0.9rem; color: #b2ff59; }
-    .single-entry-left p { font-size: clamp(0.88rem,3.8vw,1.02rem); line-height: 1.7; opacity: 0.9; margin-bottom: 0.7rem; }
-    .single-entry-right { display: flex; flex-direction: column; gap: 1.4rem; }
+  /* ================================================================
+     CONTACT — caja terminal, sin info duplicada
+  ================================================================ */
+  .contact-terminal {
+    border: 1px solid var(--accent-faint);
+    padding: 1.6rem 1.4rem;
+    background: rgba(0,0,0,0.1);
+  }
+  .contact-terminal-header { font-size: 0.78rem; opacity: 0.4; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 1.2rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--accent-faint); }
+  .contact-terminal-link { display: block; text-decoration: none; color: var(--accent); font-size: clamp(1rem,4.2vw,1.2rem); line-height: 1.5; margin-bottom: 0.9rem; padding-bottom: 0.9rem; border-bottom: 1px solid var(--accent-faint); word-break: break-word; }
+  .contact-terminal-link:last-of-type { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+  .contact-terminal-link:active { color: #e8ff99; }
+  .contact-terminal-label { display: block; font-size: 0.74rem; opacity: 0.45; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.15rem; }
+  .contact-terminal-prompt { font-size: 0.96rem; opacity: 0.5; margin-top: 1.3rem; }
+  .blink-cursor { display: inline-block; width: 0.6ch; height: 0.85em; background: var(--accent); animation: blink 0.8s steps(2) infinite; vertical-align: middle; margin-left: 0.05em; }
+  @keyframes blink { 0%,50% { opacity: 1; } 50.1%,100% { opacity: 0; } }
 
-    .section-divider { border: none; border-top: 1px solid rgba(178,255,89,0.15); margin: 3rem 0; }
-
-    /* Reproductor de audio — Electroacoustic */
-    .custom-audio-player { border: 1px solid rgba(178,255,89,0.28); padding: 1.2rem 1.3rem; font-family: "VT323", monospace; color: #b2ff59; background: rgba(0,0,0,0.18); }
-    .cap-track-name { font-size: 0.95rem; opacity: 0.55; margin-bottom: 1rem; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .cap-controls { display: flex; align-items: center; gap: 0.9rem; }
-    .cap-play-btn {
-      background: transparent; border: 1px solid rgba(178,255,89,0.5); color: #b2ff59;
-      font-family: "VT323", monospace; font-size: 1.4rem; line-height: 1;
-      width: 2.6rem; height: 2.6rem; display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0; padding: 0;
-    }
-    .cap-play-btn:active { background: rgba(178,255,89,0.15); }
-    .cap-play-btn.cap-loading { opacity: 0.6; animation: cap-pulse 0.6s steps(2) infinite; }
-    @keyframes cap-pulse { 0%,50%{opacity:0.4;} 50.1%,100%{opacity:1;} }
-    .cap-seek-wrap { flex: 1; display: flex; flex-direction: column; gap: 0.45rem; }
-    .cap-seek {
-      -webkit-appearance: none; appearance: none; width: 100%; height: 4px;
-      background: linear-gradient(to right, #b2ff59 var(--cap-fill, 0%), rgba(178,255,89,0.18) var(--cap-fill, 0%));
-      outline: none; border: none; display: block;
-    }
-    .cap-seek::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; background: #b2ff59; border-radius: 50%; margin-top: -7px; box-shadow: 0 0 7px rgba(178,255,89,0.55); }
-    .cap-seek::-moz-range-track { height: 4px; background: rgba(178,255,89,0.18); border: none; }
-    .cap-seek::-moz-range-progress { height: 4px; background: #b2ff59; }
-    .cap-seek::-moz-range-thumb { width: 18px; height: 18px; background: #b2ff59; border-radius: 50%; border: none; box-shadow: 0 0 7px rgba(178,255,89,0.55); }
-    .cap-time { font-size: 0.85rem; opacity: 0.5; text-align: right; letter-spacing: 0.04em; }
-
-    /* Galería de Luthería */
-    .luthier-gallery { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; }
-    @media (max-width: 380px) { .luthier-gallery { grid-template-columns: 1fr; } }
-
-    /* Contact */
-    .contact-content { display: flex; flex-direction: column; gap: 2rem; }
-    .contact-heading { font-size: clamp(1.5rem,6.5vw,2rem); margin-bottom: 1.1rem; color: #b2ff59; line-height: 1.25; }
-    .contact-desc { font-size: clamp(0.92rem,4vw,1.05rem); line-height: 1.8; opacity: 0.85; }
-    .contact-terminal { border: 1px solid rgba(178,255,89,0.3); padding: 1.6rem 1.5rem; font-family: "VT323", monospace; color: #b2ff59; background: rgba(0,0,0,0.12); }
-    .contact-terminal-header { font-size: 0.78rem; opacity: 0.38; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 1.3rem; padding-bottom: 0.55rem; border-bottom: 1px solid rgba(178,255,89,0.12); }
-    .contact-terminal-link { display: block; color: #b2ff59; text-decoration: none; font-size: clamp(0.95rem,4vw,1.15rem); line-height: 1.5; margin-bottom: 0.9rem; padding-bottom: 0.9rem; border-bottom: 1px solid rgba(178,255,89,0.1); word-break: break-word; }
-    .contact-terminal-link:last-of-type { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
-    .contact-terminal-link:active { color: #e8ff99; }
-    .contact-terminal-label { display: block; font-size: 0.72rem; opacity: 0.4; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.15rem; }
-    .contact-terminal-prompt { font-size: 0.95rem; opacity: 0.45; margin-top: 1.3rem; letter-spacing: 0.04em; }
-    .contact-cursor { display: inline-block; width: 0.6ch; height: 0.85em; background: #b2ff59; animation: blink 0.8s steps(2) infinite; margin-left: 0.05em; vertical-align: middle; }
-  </style>
+  footer {
+    position: relative; z-index: 1;
+    text-align: center; padding: 1.5rem 1.4rem calc(2rem + env(safe-area-inset-bottom, 0));
+    color: var(--accent-dim); font-size: 0.85rem;
+  }
+</style>
 </head>
 <body>
 
-<!-- ===================== LANDING PAGE ===================== -->
-<div id="landing-page">
-  <div class="container">
-    <h1 id="typing-title"></h1><span class="typing-cursor"></span>
-  </div>
-  <div id="name-hint" class="name-hint" aria-hidden="true">
-    <div class="arrow-container">
-      <svg class="hint-arrow" viewBox="0 0 80 100" xmlns="http://www.w3.org/2000/svg">
-        <path d="M 40 80 Q 38 60, 42 40 Q 44 25, 40 10" class="arrow-body" stroke="#b2ff59" stroke-width="2.8" fill="none"/>
-        <path d="M 40 10 L 30 22 Q 35 16, 40 10 L 48 20" class="arrow-head" stroke="#b2ff59" stroke-width="2.5" fill="#b2ff59" fill-opacity="0.8"/>
-      </svg>
-    </div>
-    <img src="learnmore.gif" class="hint-gif" alt="Tap hint animation" id="hint-gif-img" />
-  </div>
-  <p class="desktop-hint-text">For the full experience — sound, hidden tricks and all — this site shines best on a computer.</p>
-</div>
+<!-- ===================== BIO / PRESENTACIÓN — entrada directa ===================== -->
+<main id="bio-page">
+  <section class="bio">
+    <span class="drift-symbol" style="top:6%; right:8%; animation: drift-a 9s ease-in-out infinite;">✶</span>
+    <span class="drift-symbol" style="top:60%; left:4%; font-size:1.1rem; animation: drift-b 7.5s ease-in-out infinite;">+</span>
+    <span class="drift-symbol" style="top:85%; right:14%; font-size:1.3rem; animation: drift-c 8.5s ease-in-out infinite;">✦</span>
 
-<!-- ===================== PÁGINA INTERNA (bio) ===================== -->
-<div id="internal-page" class="internal-page" aria-hidden="true">
-  <div class="internal-page__content">
-    <div class="page-left-column">
-      <h2>Nicolás Gómez Salamanca</h2>
+    <h1 class="bio-name">Nicolás<br>Gómez Salamanca</h1>
+    <p class="bio-role">Sound Artist &amp; Composer — Colombia / France</p>
+
+    <div class="bio-text">
       <p>Hello! I'm Nicolás Gómez Salamanca, a Colombian sound artist based in France.</p>
-      <p>My work revolves around sound and new technologies — exploring what happens when classical music training meets contemporary tools. I've developed a series of projects that bring together my background in violin with electroacoustic composition, using sensors and custom-built devices in real time.</p>
-      <p>On the professional side, I work as a sound designer and editor for films, short films, and installation art. I love the challenge of composing film scores and working alongside directors to bring projects to life! :)</p>
-      <p>I worked at Le Fresnoy in Tourcoing, France, a prestigious studio for the production and dissemination of artistic, audiovisual, and digital art. In 2022, I received the Silver Prize for Best Acoustic Recording at the AES LAC competition, organized by the Audio Engineering Society in Buenos Aires. More recently, I was invited to the Variations Numériques festival in 2024 at Jean Monnet University in Saint-Étienne, and participated as a guest artist at RICM 2025 at the Sorbonne in Paris.</p>
+      <p>My work revolves around sound and new technologies — exploring what happens when classical music training meets contemporary tools. I've developed a series of projects that bring together my background in <strong>violin</strong> with electroacoustic composition, using sensors and custom-built devices in real time.</p>
+      <p>On the professional side, I work as a <strong>sound designer and editor for films</strong>, short films, and installation art. I love the challenge of composing film scores and working alongside directors to bring projects to life! :)</p>
+      <p>I worked at <strong>Le Fresnoy</strong>, Studio national des arts contemporains, in Tourcoing, France. More recently, I was invited to the Variations Numériques festival (2024) at Jean Monnet University, and participated as a guest artist at RICM 2025 at the Sorbonne in Paris.</p>
     </div>
-  </div>
 
-  <!-- Tab bar fijo — siempre visible, resuelve el problema de los links perdidos al hacer scroll -->
-  <nav class="mobile-nav-bar">
-    <a href="#" class="mobile-nav-link" data-subpage="page-short-films">Short Films</a>
-    <a href="#" class="mobile-nav-link" data-subpage="page-electroacoustic">Electroacoustic</a>
-    <a href="#" class="mobile-nav-link" data-subpage="page-instruments">Instruments</a>
-    <a href="#" class="mobile-nav-link" data-subpage="page-contact">Contact</a>
+    <div class="credit-list">
+      <div class="credit-row"><span>Le Fresnoy — Studio National</span><span>2024</span></div>
+      <div class="credit-row"><span>AES LAC — Silver Prize, Best Acoustic Recording</span><span>2022</span></div>
+      <div class="credit-row"><span>Festival Variations Numériques</span><span>2024</span></div>
+      <div class="credit-row"><span>RICM — Sorbonne, Paris</span><span>2025</span></div>
+    </div>
+  </section>
+
+  <nav class="toc">
+    <span class="toc-heading">— browse —</span>
+
+    <a href="#" class="toc-item" data-subpage="page-short-films">
+      <span class="toc-index">01</span>
+      <span class="toc-label">Short Films</span>
+      <span class="toc-arrow">↳</span>
+    </a>
+    <a href="#" class="toc-item" data-subpage="page-electroacoustic">
+      <span class="toc-index">02</span>
+      <span class="toc-label">Electroacoustic Composition</span>
+      <span class="toc-arrow">↳</span>
+    </a>
+    <a href="#" class="toc-item" data-subpage="page-instruments">
+      <span class="toc-index">03</span>
+      <span class="toc-label">Instrument Making</span>
+      <span class="toc-arrow">↳</span>
+    </a>
+    <a href="#" class="toc-item" data-subpage="page-contact">
+      <span class="toc-index">04</span>
+      <span class="toc-label">Contact</span>
+      <span class="toc-arrow">↳</span>
+    </a>
   </nav>
-</div>
+
+  <footer>Nicolás Gómez Salamanca</footer>
+</main>
 
 <!-- ===================== SUB-PAGE: SHORT FILMS ===================== -->
 <div id="page-short-films" class="sub-page">
@@ -318,154 +323,93 @@
       <button class="back-btn" onclick="hideSubPage()">← Back</button>
       <h2 class="sub-page-title">Short Films</h2>
     </div>
-    <div class="film-nav-pills">
-      <a href="#film-dp"    class="film-pill">Dew Point</a>
-      <a href="#film-cmb"   class="film-pill">Cosmic MWB</a>
-      <a href="#film-lcdlc" class="film-pill">Les Champs</a>
-      <a href="#film-ip"    class="film-pill">In Parallel</a>
-      <a href="#film-disc"  class="film-pill">Discorde</a>
-      <a href="#film-there" class="film-pill">Theremespare</a>
-      <a href="#film-ln"    class="film-pill">Loch Nice</a>
-      <a href="#film-tp"    class="film-pill">Tendre Phonocène</a>
-      <a href="#film-df"    class="film-pill">Delete Forever</a>
-      <a href="#film-other" class="film-pill">Other Projects</a>
+    <div class="pill-nav">
+      <a href="#film-dp">Dew Point</a>
+      <a href="#film-cmb">Cosmic MWB</a>
+      <a href="#film-lcdlc">Les Champs</a>
+      <a href="#film-ip">In Parallel</a>
+      <a href="#film-disc">Discorde</a>
+      <a href="#film-there">Theremespare</a>
+      <a href="#film-ln">Loch Nice</a>
+      <a href="#film-tp">Tendre Phonocène</a>
+      <a href="#film-df">Delete Forever</a>
+      <a href="#film-other">Other Projects</a>
     </div>
   </div>
   <div class="sub-page-body">
 
-    <div class="film-entry" id="film-dp">
-      <div class="film-left">
-        <h3>Dew Point</h3>
-        <p>A man who experiences amnesia finds himself in a mysterious Sleep & Memory lab where a young doctor tries to cure him through a magical water.</p>
-        <p>Sound Editors: Nicolás Gómez Salamanca, Luc Aureille<br>Director: Nicola Baratto<br>Production: Le Fresnoy, Studio national des arts contemporains<br>2024</p>
-      </div>
-      <div class="film-right">
-        <div class="media-tremble">
-          <iframe src="https://player.vimeo.com/video/958324974?badge=0&autopause=0&player_id=0&app_id=58479" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
-        </div>
-      </div>
+    <div class="entry" id="film-dp">
+      <h3>Dew Point</h3>
+      <p>A man who experiences amnesia finds himself in a mysterious Sleep &amp; Memory lab where a young doctor tries to cure him through a magical water.</p>
+      <p class="credits">Sound Editors: Nicolás Gómez Salamanca, Luc Aureille<br>Director: Nicola Baratto<br>Production: Le Fresnoy, Studio national des arts contemporains<br>2024</p>
+      <div class="tremble"><iframe src="https://player.vimeo.com/video/958324974?badge=0&autopause=0&player_id=0&app_id=58479" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>
     </div>
 
-    <div class="film-entry" id="film-cmb">
-      <div class="film-left">
-        <h3>The Cosmic MicroWaves Background</h3>
-        <p>An ancient baryonic compression wave suddenly cuts through the matter and time of present-day space, causing strange material disturbances in its path.</p>
-        <p>Sound Editors: Raphaël Zucconi, Robin Touchard<br>Sound Edition Assistant: Nicolás Gómez Salamanca<br>Director: Robin Touchard<br>Production: Le Fresnoy, Studio national des arts contemporains<br>2024</p>
-      </div>
-      <div class="film-right">
-        <div class="media-tremble">
-          <iframe src="https://player.vimeo.com/video/1038238939?byline=1&color=00adef&controls=1&dnt=1&muted=0" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
-        </div>
-      </div>
+    <div class="entry" id="film-cmb">
+      <h3>The Cosmic MicroWaves Background</h3>
+      <p>An ancient baryonic compression wave suddenly cuts through the matter and time of present-day space, causing strange material disturbances in its path.</p>
+      <p class="credits">Sound Editors: Raphaël Zucconi, Robin Touchard<br>Sound Edition Assistant: Nicolás Gómez Salamanca<br>Director: Robin Touchard<br>Production: Le Fresnoy, Studio national des arts contemporains<br>2024</p>
+      <div class="tremble"><iframe src="https://player.vimeo.com/video/1038238939?byline=1&color=00adef&controls=1&dnt=1&muted=0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>
     </div>
 
-    <div class="film-entry" id="film-lcdlc">
-      <div class="film-left">
-        <h3>Les Champs de la Colonisation</h3>
-        <p>In the early 19th century, Jacques François Roger built a castle in Senegal and developed the fields of an experimental farm. The madness of a dream of conquest intertwined with agriculture as a strategy of occupation. Despite occupation, the plants, the Waalo and the soil resist.</p>
-        <p>Sound Editors: Nicolás Gómez Salamanca, Benjamin Poilane<br>Director: Nicolas Pirus<br>Production: Le Fresnoy, Studio national des arts contemporains<br>2024</p>
-      </div>
-      <div class="film-right">
-        <div class="media-tremble">
-          <iframe src="https://player.vimeo.com/video/1038222499?byline=1&color=00adef&controls=1&dnt=1&muted=0" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
-        </div>
-      </div>
+    <div class="entry" id="film-lcdlc">
+      <h3>Les Champs de la Colonisation</h3>
+      <p>In the early 19th century, Jacques François Roger built a castle in Senegal and developed the fields of an experimental farm. The madness of a dream of conquest intertwined with agriculture as a strategy of occupation. Despite occupation, the plants, the Waalo and the soil resist.</p>
+      <p class="credits">Sound Editors: Nicolás Gómez Salamanca, Benjamin Poilane<br>Director: Nicolas Pirus<br>Production: Le Fresnoy, Studio national des arts contemporains<br>2024</p>
+      <div class="tremble"><iframe src="https://player.vimeo.com/video/1038222499?byline=1&color=00adef&controls=1&dnt=1&muted=0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>
     </div>
 
-    <div class="film-entry" id="film-ip">
-      <div class="film-left">
-        <h3>In Parallel</h3>
-        <p>Sound Editor: Nicolás Gómez Salamanca<br>Sound Design: André Serre Milan<br>Sound Design Assistant: Nicolás Gómez Salamanca<br>Director: Nefeli Papadimouli<br>Production: Le Fresnoy, Studio national des arts contemporains<br>2024</p>
-      </div>
-      <div class="film-right">
-        <div class="media-tremble">
-          <img src="images/InParallel1.jpeg" alt="In Parallel" />
-        </div>
-      </div>
+    <div class="entry" id="film-ip">
+      <h3>In Parallel</h3>
+      <p class="credits">Sound Editor: Nicolás Gómez Salamanca<br>Sound Design: André Serre Milan<br>Sound Design Assistant: Nicolás Gómez Salamanca<br>Director: Nefeli Papadimouli<br>Production: Le Fresnoy, Studio national des arts contemporains<br>2024</p>
+      <div class="tremble"><img src="images/InParallel1.jpeg" alt="In Parallel" loading="lazy"></div>
     </div>
 
-    <div class="film-entry" id="film-disc">
-      <div class="film-left">
-        <h3>Discorde</h3>
-        <p>Antonio has left the group of friends he grew up with in Seine-Saint-Denis. Using the exquisite cadaver principle, several of his friends successively invent the twists and turns of a tale in which a strange illness plunges him into a coma.</p>
-        <p>Sound Editors: Nicolás Gómez Salamanca, Benjamin Poilane<br>Director: Lucas Mesdom<br>Production: Le Fresnoy, Studio national des arts contemporains<br>2024</p>
-      </div>
-      <div class="film-right">
-        <div class="media-tremble">
-          <img src="images/Discord1.jpeg" alt="Discorde" />
-        </div>
-      </div>
+    <div class="entry" id="film-disc">
+      <h3>Discorde</h3>
+      <p>Antonio has left the group of friends he grew up with in Seine-Saint-Denis. Using the exquisite cadaver principle, several of his friends successively invent the twists and turns of a tale in which a strange illness plunges him into a coma.</p>
+      <p class="credits">Sound Editors: Nicolás Gómez Salamanca, Benjamin Poilane<br>Director: Lucas Mesdom<br>Production: Le Fresnoy, Studio national des arts contemporains<br>2024</p>
+      <div class="tremble"><img src="images/Discord1.jpeg" alt="Discorde" loading="lazy"></div>
     </div>
 
-    <div class="film-entry" id="film-there">
-      <div class="film-left">
-        <h3>Theremespare</h3>
-        <p>An influencer glorifies the legend of Theremespare. A young queer artist chases it through layers of illusions and fantasies.</p>
-        <p>Sound Editors: Nicolás Gómez Salamanca, Clément Decaudin<br>Director: Hantédemos<br>Production: Le Fresnoy, Studio national des arts contemporains<br>2024</p>
-      </div>
-      <div class="film-right">
-        <div class="media-tremble">
-          <img src="images/Theremespare1.jpeg" alt="Theremespare" />
-        </div>
-      </div>
+    <div class="entry" id="film-there">
+      <h3>Theremespare</h3>
+      <p>An influencer glorifies the legend of Theremespare. A young queer artist chases it through layers of illusions and fantasies.</p>
+      <p class="credits">Sound Editors: Nicolás Gómez Salamanca, Clément Decaudin<br>Director: Hantédemos<br>Production: Le Fresnoy, Studio national des arts contemporains<br>2024</p>
+      <div class="tremble"><img src="images/Theremespare1.jpeg" alt="Theremespare" loading="lazy"></div>
     </div>
 
-    <div class="film-entry" id="film-ln">
-      <div class="film-left">
-        <h3>Loch Nice</h3>
-        <p>A newcomer to Paris finds a tender voice on a dating app for their road trip to Nice, with the same Mandarin sound as Ness, wishing to see the monster in error.</p>
-        <p>Sound Mix: Martin Delzescaux<br>Sound Assistant: Nicolás Gómez Salamanca<br>Director: Bohao Liu<br>Production: Le Fresnoy, Studio national des arts contemporains<br>2024</p>
-      </div>
-      <div class="film-right">
-        <div class="media-tremble">
-          <img src="images/LochNice1.jpeg" alt="Loch Nice" />
-        </div>
-      </div>
+    <div class="entry" id="film-ln">
+      <h3>Loch Nice</h3>
+      <p>A newcomer to Paris finds a tender voice on a dating app for their road trip to Nice, with the same Mandarin sound as Ness, wishing to see the monster in error.</p>
+      <p class="credits">Sound Mix: Martin Delzescaux<br>Sound Assistant: Nicolás Gómez Salamanca<br>Director: Bohao Liu<br>Production: Le Fresnoy, Studio national des arts contemporains<br>2024</p>
+      <div class="tremble"><img src="images/LochNice1.jpeg" alt="Loch Nice" loading="lazy"></div>
     </div>
 
-    <div class="film-entry" id="film-tp">
-      <div class="film-left">
-        <h3>Tendre Phonocène</h3>
-        <p>In industrial forests, a group of female sound recordists plays back the songs of birds. Seeking to bring the microphone to the living beings that remain, they try to reactivate damaged soundscapes.</p>
-        <p>Sound Editor: Mélia Roger<br>Sound Assistant: Nicolás Gómez Salamanca<br>Director: Mélia Roger<br>Production: Le Fresnoy, Studio national des arts contemporains<br>2024</p>
-      </div>
-      <div class="film-right">
-        <div class="media-tremble">
-          <iframe src="https://player.vimeo.com/video/1031190748?badge=0&autopause=0&player_id=0&app_id=58479" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
-        </div>
-      </div>
+    <div class="entry" id="film-tp">
+      <h3>Tendre Phonocène</h3>
+      <p>In industrial forests, a group of female sound recordists plays back the songs of birds. Seeking to bring the microphone to the living beings that remain, they try to reactivate damaged soundscapes.</p>
+      <p class="credits">Sound Editor: Mélia Roger<br>Sound Assistant: Nicolás Gómez Salamanca<br>Director: Mélia Roger<br>Production: Le Fresnoy, Studio national des arts contemporains<br>2024</p>
+      <div class="tremble"><iframe src="https://player.vimeo.com/video/1031190748?badge=0&autopause=0&player_id=0&app_id=58479" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>
     </div>
 
-    <div class="film-entry" id="film-df">
-      <div class="film-left">
-        <h3>Delete Forever</h3>
-        <p>Every day, thousands of people choose to remove their content from social media. YouTube, in particular, is home to ephemeral amateur videos in which people express themselves about their daily lives. Given the loss of control over personal data online, these network-quitters may have found a solution.</p>
-        <p>Sound Supervisor: Raphaël Zucconi<br>Sound Assistant: Nicolás Gómez Salamanca<br>Director: Félix Cote<br>Production: Le Fresnoy, Studio national des arts contemporains<br>2024</p>
-      </div>
-      <div class="film-right">
-        <div class="media-tremble">
-          <img src="images/DF1.jpeg" alt="Delete Forever" />
-        </div>
-      </div>
+    <div class="entry" id="film-df">
+      <h3>Delete Forever</h3>
+      <p>Every day, thousands of people choose to remove their content from social media. YouTube, in particular, is home to ephemeral amateur videos in which people express themselves about their daily lives. Given the loss of control over personal data online, these network-quitters may have found a solution.</p>
+      <p class="credits">Sound Supervisor: Raphaël Zucconi<br>Sound Assistant: Nicolás Gómez Salamanca<br>Director: Félix Cote<br>Production: Le Fresnoy, Studio national des arts contemporains<br>2024</p>
+      <div class="tremble"><img src="images/DF1.jpeg" alt="Delete Forever" loading="lazy"></div>
     </div>
 
-    <div class="film-entry" id="film-other">
-      <div class="film-left">
-        <h3>Other Projects</h3>
-        <h4>We Can't Live Without Cosmos</h4>
-        <p>Two lifelong friends grow up with the shared dream of becoming cosmonauts. They pass countless physical tests, simulate flying through space by bouncing on their beds, and are ultimately selected for the next mission — until tragedy intervenes and something impossible happens between the stars.</p>
-        <p>Complete resonorization: Nicolás Gómez Salamanca<br>Director: Konstantin Bronzit<br>2022</p>
-        <h4>Rage</h4>
-        <p>Sound Design: Nicolás Gómez Salamanca, Daniela Gutiérrez<br>Music Composition: Nicolás Gómez Salamanca, Daniela Gutiérrez<br>Director: Orly Lovett<br>2023</p>
-      </div>
-      <div class="film-right">
-        <div class="media-tremble">
-          <iframe src="https://www.youtube.com/embed/2hPghT8tbLA" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-        </div>
-        <div class="media-tremble">
-          <iframe src="https://www.youtube.com/embed/_X6ebADh8t8" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-        </div>
-      </div>
+    <div class="entry" id="film-other">
+      <h3>Other Projects</h3>
+      <h4>We Can't Live Without Cosmos</h4>
+      <p>Two lifelong friends grow up with the shared dream of becoming cosmonauts. They pass countless physical tests, simulate flying through space by bouncing on their beds, and are ultimately selected for the next mission — until tragedy intervenes and something impossible happens between the stars.</p>
+      <p class="credits">Complete resonorization: Nicolás Gómez Salamanca<br>Director: Konstantin Bronzit<br>2022</p>
+      <div class="tremble"><iframe src="https://www.youtube.com/embed/2hPghT8tbLA" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>
+
+      <h4>Rage</h4>
+      <p class="credits">Sound Design: Nicolás Gómez Salamanca, Daniela Gutiérrez<br>Music Composition: Nicolás Gómez Salamanca, Daniela Gutiérrez<br>Director: Orly Lovett<br>2023</p>
+      <div class="tremble"><iframe src="https://www.youtube.com/embed/_X6ebADh8t8" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>
     </div>
 
   </div>
@@ -478,59 +422,46 @@
       <button class="back-btn" onclick="hideSubPage()">← Back</button>
       <h2 class="sub-page-title">Electroacoustic</h2>
     </div>
-    <div class="film-nav-pills">
-      <a href="#ea-itineraire" class="film-pill">Itinéraire Musical</a>
+    <div class="pill-nav">
+      <a href="#ea-itineraire">Itinéraire Musical</a>
       <!-- *** Cambia este texto por el título de tu nueva pieza *** -->
-      <a href="#ea-new" class="film-pill">Título Nueva Pieza</a>
+      <a href="#ea-new">Título Nueva Pieza</a>
     </div>
   </div>
   <div class="sub-page-body">
 
-    <div class="single-entry" id="ea-itineraire">
-      <div class="single-entry-left">
-        <h3>Itinéraire Musical</h3>
-        <p>A musical project combining the acoustic richness of the violin with a deep dialogue with natural species — aiming to revive and reflect on spaces previously inhabited by the composer. A sonic exploration in the Colombian jungle, a space that becomes a stage for encounters and communication between the birds and the performer.</p>
-        <p>Through the imitation and transformation of bird songs, the performer generates a dialogue with the other species in the environment, transforming and rearranging them at will. The performer controls all the natural elements that are part of the composition: bird songs, rain, rivers, day, or night.</p>
-        <p>This composition seeks to celebrate the biodiversity and spirituality of the Colombian jungle while inviting the audience to reflect on the impact of human intervention in these ecosystems.</p>
-        <p>Created and performed by Nicolás Gómez Salamanca. Written to be controlled using a violin and a MIDI keyboard, played through an octophonic system via computer using MAXMSP.</p>
-        <p>Music Composition &amp; Violin: Nicolás Gómez Salamanca<br>Production: Festival Variations Numériques, Université Jean Monnet<br>2024</p>
-      </div>
-      <div class="single-entry-right">
-        <div class="media-tremble">
-          <iframe src="https://www.youtube.com/embed/XBmXaerJkFg" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-        </div>
-      </div>
+    <div class="entry" id="ea-itineraire">
+      <h3>Itinéraire Musical</h3>
+      <p>A musical project combining the acoustic richness of the violin with a deep dialogue with natural species — aiming to revive and reflect on spaces previously inhabited by the composer. A sonic exploration in the Colombian jungle, a space that becomes a stage for encounters and communication between the birds and the performer.</p>
+      <p>Through the imitation and transformation of bird songs, the performer generates a dialogue with the other species in the environment, transforming and rearranging them at will. The performer controls all the natural elements that are part of the composition: bird songs, rain, rivers, day, or night.</p>
+      <p>Created and performed by Nicolás Gómez Salamanca. Written to be controlled using a violin and a MIDI keyboard, played through an octophonic system via computer using MAXMSP.</p>
+      <p class="credits">Music Composition &amp; Violin: Nicolás Gómez Salamanca<br>Production: Festival Variations Numériques, Université Jean Monnet<br>2024</p>
+      <div class="tremble"><iframe src="https://www.youtube.com/embed/XBmXaerJkFg" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>
     </div>
 
-    <hr class="section-divider">
+    <div class="entry" id="ea-new">
+      <!-- *** CAMBIA ESTE TÍTULO *** -->
+      <h3>Título de la nueva pieza</h3>
+      <!-- *** CAMBIA ESTA DESCRIPCIÓN *** -->
+      <p>Descripción de la obra. Aquí puedes hablar sobre el proceso compositivo, los medios electrónicos o instrumentos utilizados, el espacio de escucha para el que fue pensada, y las ideas conceptuales que la guían.</p>
+      <p>Puedes agregar aquí notas de programa, contexto de estreno, o cualquier reflexión sobre la pieza.</p>
+      <!-- *** CAMBIA ESTOS DATOS *** -->
+      <p class="credits">Composición: Nicolás Gómez Salamanca<br>Año: ????<br>Duración: ??:??</p>
 
-    <div class="single-entry" id="ea-new">
-      <div class="single-entry-left">
-        <!-- *** CAMBIA ESTE TÍTULO *** -->
-        <h3>Título de la nueva pieza</h3>
-        <!-- *** CAMBIA ESTA DESCRIPCIÓN *** -->
-        <p>Descripción de la obra. Aquí puedes hablar sobre el proceso compositivo, los medios electrónicos o instrumentos utilizados, el espacio de escucha para el que fue pensada, y las ideas conceptuales que la guían.</p>
-        <p>Puedes agregar aquí notas de programa, contexto de estreno, o cualquier reflexión sobre la pieza.</p>
-        <!-- *** CAMBIA ESTOS DATOS *** -->
-        <p>Composición: Nicolás Gómez Salamanca<br>Año: ????<br>Duración: ??:??</p>
-      </div>
-      <div class="single-entry-right">
-        <!--
-        ╔══════════════════════════════════════════════════════════╗
-        ║  REPRODUCTOR — pon la ruta a tu audio en data-src=""    ║
-        ║  No se descarga nada hasta que el visitante toque ▶.    ║
-        ╚══════════════════════════════════════════════════════════╝
-        -->
-        <div class="custom-audio-player"
-             data-src="<!-- *** PON AQUÍ LA RUTA — ej: audio/mi-pieza.mp3 *** -->">
-          <!-- *** NOMBRE VISIBLE DEL TRACK *** -->
-          <div class="cap-track-name">mi-pieza.mp3</div>
-          <div class="cap-controls">
-            <button class="cap-play-btn" aria-label="Play / Pause">▶</button>
-            <div class="cap-seek-wrap">
-              <input type="range" class="cap-seek" min="0" max="100" value="0" step="0.1" aria-label="Seek">
-              <div class="cap-time">0:00 / –:––</div>
-            </div>
+      <!--
+      ╔══════════════════════════════════════════════════════════╗
+      ║  REPRODUCTOR — pon la ruta a tu audio en data-src=""    ║
+      ║  No se descarga nada hasta que el visitante toque ▶.    ║
+      ╚══════════════════════════════════════════════════════════╝
+      -->
+      <div class="audio-player" data-src="<!-- *** PON AQUÍ LA RUTA — ej: audio/mi-pieza.mp3 *** -->">
+        <!-- *** NOMBRE VISIBLE DEL TRACK *** -->
+        <div class="audio-track-name">mi-pieza.mp3</div>
+        <div class="audio-controls">
+          <button class="audio-play-btn" aria-label="Play / Pause">▶</button>
+          <div class="audio-seek-wrap">
+            <input type="range" class="audio-seek" min="0" max="100" value="0" step="0.1" aria-label="Seek">
+            <div class="audio-time">0:00 / –:––</div>
           </div>
         </div>
       </div>
@@ -546,43 +477,31 @@
       <button class="back-btn" onclick="hideSubPage()">← Back</button>
       <h2 class="sub-page-title">Instruments</h2>
     </div>
-    <div class="film-nav-pills">
-      <a href="#im-eye" class="film-pill">The Eye</a>
-      <a href="#im-luthier" class="film-pill">Luthería</a>
+    <div class="pill-nav">
+      <a href="#im-eye">The Eye</a>
+      <a href="#im-luthier">Luthería</a>
     </div>
   </div>
   <div class="sub-page-body">
 
-    <div class="single-entry" id="im-eye">
-      <div class="single-entry-left">
-        <h3>The Eye</h3>
-        <p>The Eye is a digital instrument primarily controlled by a photosensitive sensor, which represents the eye's retina. When light approaches or moves away from the sensor, it alters the instrument's frequencies and the LFO.</p>
-        <p>In addition to the photosensitive sensor, it has three other controls: a piezoelectric sensor that changes the sound depending on the pressure applied to it, and two additional controllers that also influence various aspects of the sound.</p>
-        <p>This instrument is based on a Teensy board, programmed through MaxMSP. It explores unconventional elements for musical creation — light and the force of pressure — as expressive materials.</p>
-      </div>
-      <div class="single-entry-right">
-        <div class="media-tremble">
-          <iframe src="https://www.youtube.com/embed/Xfww_vZf7-Y" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-        </div>
-      </div>
+    <div class="entry" id="im-eye">
+      <h3>The Eye</h3>
+      <p>The Eye is a digital instrument primarily controlled by a photosensitive sensor, which represents the eye's retina. When light approaches or moves away from the sensor, it alters the instrument's frequencies and the LFO.</p>
+      <p>In addition to the photosensitive sensor, it has three other controls: a piezoelectric sensor that changes the sound depending on the pressure applied to it, and two additional controllers that also influence various aspects of the sound.</p>
+      <p>This instrument is based on a Teensy board, programmed through MaxMSP. It explores unconventional elements for musical creation — light and the force of pressure — as expressive materials.</p>
+      <div class="tremble"><iframe src="https://www.youtube.com/embed/Xfww_vZf7-Y" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>
     </div>
 
-    <hr class="section-divider">
-
-    <div class="single-entry" id="im-luthier">
-      <div class="single-entry-left">
-        <h3>Luthería — Violín</h3>
-        <p>A handcrafted violin built from scratch, exploring the intersection of traditional lutherie with a contemporary sensibility. The process involved selecting, shaping, and assembling tonewoods — spruce for the top, maple for the back and ribs — following classical construction techniques while experimenting with varnish and acoustic finishing.</p>
-        <p>Beyond sound design and electronics, this project is rooted in the physicality of the instrument itself: understanding how the body resonates, how the arching shapes tone, and how the maker's touch leaves its mark on every piece of wood.</p>
-        <p><!-- *** Añade aquí año, materiales, o cualquier otra información *** --></p>
-      </div>
-      <div class="single-entry-right">
-        <div class="luthier-gallery">
-          <div class="media-tremble"><img src="images/lutheria-1.jpg" alt="Luthería — proceso de construcción"></div>
-          <div class="media-tremble"><img src="images/lutheria-2.jpg" alt="Luthería — cuerpo del violín"></div>
-          <div class="media-tremble"><img src="images/lutheria-3.jpg" alt="Luthería — detalles"></div>
-          <div class="media-tremble"><img src="images/lutheria-4.jpg" alt="Luthería — violín terminado"></div>
-        </div>
+    <div class="entry" id="im-luthier">
+      <h3>Luthería — Violín</h3>
+      <p>A handcrafted violin built from scratch, exploring the intersection of traditional lutherie with a contemporary sensibility. The process involved selecting, shaping, and assembling tonewoods — spruce for the top, maple for the back and ribs — following classical construction techniques while experimenting with varnish and acoustic finishing.</p>
+      <p>Beyond sound design and electronics, this project is rooted in the physicality of the instrument itself: understanding how the body resonates, how the arching shapes tone, and how the maker's touch leaves its mark on every piece of wood.</p>
+      <p class="credits"><!-- *** Añade aquí año, materiales, o cualquier otra información *** --></p>
+      <div class="gallery">
+        <div class="tremble"><img src="images/lutheria-1.jpg" alt="Luthería — proceso de construcción" loading="lazy"></div>
+        <div class="tremble"><img src="images/lutheria-2.jpg" alt="Luthería — cuerpo del violín" loading="lazy"></div>
+        <div class="tremble"><img src="images/lutheria-3.jpg" alt="Luthería — detalles" loading="lazy"></div>
+        <div class="tremble"><img src="images/lutheria-4.jpg" alt="Luthería — violín terminado" loading="lazy"></div>
       </div>
     </div>
 
@@ -598,11 +517,10 @@
     </div>
   </div>
   <div class="sub-page-body">
-    <div class="contact-content">
-      <div>
-        <h3 class="contact-heading">Let's build something together.</h3>
-        <p class="contact-desc">I'm available for projects in sound design and editing for film, electroacoustic composition, and instrument making. Feel free to reach out — I'd love to hear about what you're working on.</p>
-      </div>
+    <div class="entry">
+      <h3>Let's build something together.</h3>
+      <p>I'm available for projects in sound design and editing for film, electroacoustic composition, and instrument making. Feel free to reach out — I'd love to hear about what you're working on.</p>
+
       <div class="contact-terminal">
         <div class="contact-terminal-header">── contact ──────────────────</div>
         <a href="mailto:contact@nicolasgomezsal.co" class="contact-terminal-link">
@@ -613,7 +531,7 @@
           <span class="contact-terminal-label">↗ linkedin</span>
           /in/nicolasgomezs
         </a>
-        <div class="contact-terminal-prompt">&gt; available_<span class="contact-cursor"></span></div>
+        <div class="contact-terminal-prompt">&gt; available_<span class="blink-cursor"></span></div>
       </div>
     </div>
   </div>
@@ -621,679 +539,21 @@
 
 <script>
   /* ================================================================
-     ÍNDICE — versión móvil
-     1.  CONFIG
-     2.  LANDING — TÍTULO
-     3.  AUDIO — ESTADO/HELPERS
-     4.  AUDIO — DESBLOQUEO
-     5.  AUDIO — DRONE TÍTULO (touch)
-     6.  AUDIO — PAD NICOLÁS (touchmove, sólo en pantalla de Nicolás)
-     7.  NICOLÁS VOLADORES — generación + tap para navegar
-     8.  INACTIVIDAD (touch)
-     9.  TRANSICIÓN DE PÁGINA
-     10. AUDIO — PALABRAS / LINKS (tap)
-     11. TAB BAR — ciclo de textos
-     12. SUB-PAGES — audio player + nav
-     13. INIT
+     1. SUB-PAGES — abrir / cerrar con transición de fade
+     2. PILL NAV — saltar dentro de la sub-page
+     3. AUDIO PLAYER — HTML5 nativo, carga perezosa al tocar ▶
   ================================================================ */
 
-  /* ================================================================
-     1. CONFIG
-  ================================================================ */
-  const AUDIO_CONFIG = {
-    titleDrone: { gain: 0.14, fadeIn: 0.05, fadeOut: 1.0 },
-    titleGrain: { minIntervalMs: 45, durationSec: 0.08, gain: 0.09, freqLow: 300, freqHigh: 2400 },
-    padMaster:  { gain: 1.0, fadeIn: 2.5, fadeOut: 1.8 },
-    dronePad: {
-      freqs:       [82, 110, 123, 164, 185],
-      types:       ['sine','sine','triangle','sine','triangle'],
-      voiceGain:   0.022,
-      gainMouse:   0.018,
-      detuneRange: 38,
-      filterBase:  320, filterMouse: 900,
-      reverbDecay: 5.0,
-      reverbWet:   0.55
-    },
-    interaction:   { base: 0.15, range: 0.33 },
-    texture:       { base: 0.027, range: 0.057 },
-    delayFeedback: 0.55,
-    cluster:       { root: 110, scale: [0,2,4,6,8,10] },
-    reading:       { root: 220, scale: [0,2,3,7,10], gain: 0.22, duration: 0.5, delayTime: 0.18, feedback: 0.35 },
-    linkSound:     { gain: 0.038 }
-  };
+  /* 1. Sub-pages */
+  let activeSubPage = null;
 
-  const INACTIVITY_MS    = 10000;
-  const FLOATING_ROWS    = 8;   // reducido de 12 → menos carga en CPU móvil
-  const FLOATING_PER_ROW = 10;  // reducido de 22
-  const PAD_SILENCE_DELAY = 900; // ms sin arrastrar el dedo → fade out
-
-  /* ================================================================
-     2. LANDING — TÍTULO
-  ================================================================ */
-  const title      = document.getElementById('typing-title');
-  const prefixText = "Hey, it's ";
-  const nameText   = "Nicolás";
-  const suffixText = "!";
-  const prefixSpan = document.createElement('span');
-  const nameAnchor = document.createElement('a');
-  nameAnchor.id    = 'name-link';
-  nameAnchor.href  = '#';
-  nameAnchor.setAttribute('aria-label','Learn more about Nicolás');
-  const suffixSpan = document.createElement('span');
-  title.append(prefixSpan, nameAnchor, suffixSpan);
-  const parts = [
-    { el: prefixSpan, text: prefixText },
-    { el: nameAnchor, text: nameText   },
-    { el: suffixSpan, text: suffixText }
-  ];
-  let partIndex = 0, charIndex = 0;
-  let typingComplete = false;
-
-  function typeNextChar() {
-    if (partIndex < parts.length) {
-      const part = parts[partIndex];
-      if (charIndex < part.text.length) {
-        part.el.textContent += part.text[charIndex++];
-        setTimeout(typeNextChar, 100);
-      } else { partIndex += 1; charIndex = 0; setTimeout(typeNextChar, 120); }
-    } else {
-      typingComplete = true;
-      setTimeout(() => { positionHint(); showHint(); }, 200);
-    }
-  }
-
-  function showHint() { const h = document.getElementById('name-hint'); if (h) h.style.opacity = '1'; }
-
-  function positionHint() {
-    const hint = document.getElementById('name-hint');
-    const nameRect = nameAnchor.getBoundingClientRect();
-    if (!hint || nameRect.width === 0) return;
-    let left = nameRect.left + (nameRect.width / 2) - 35;
-    let top  = nameRect.bottom + 5;
-    const hintWidth = 120;
-    const maxLeft = window.innerWidth - hintWidth - 10;
-    left = Math.min(maxLeft, Math.max(10, left));
-    if (top + 170 > window.innerHeight) top = nameRect.top - 160;
-    hint.style.left = left + 'px';
-    hint.style.top  = top  + 'px';
-  }
-
-  const gifImg = document.getElementById('hint-gif-img');
-  if (gifImg) {
-    gifImg.onload = () => { setTimeout(() => { if (gifImg) gifImg.src = 'lastframe.png'; }, 5900); };
-    if (gifImg.complete) setTimeout(() => { if (gifImg) gifImg.src = 'lastframe.png'; }, 5900);
-  }
-
-  /* ================================================================
-     3. AUDIO — ESTADO GLOBAL Y HELPERS
-  ================================================================ */
-  let audioCtx = null;
-  let titleDroneGain = null, titleDroneOsc1 = null, titleDroneOsc2 = null, titleDroneOsc3 = null;
-  let titleDroneFilter = null, isTitleDroneActive = false;
-  let padGain = null;
-  let interactionGain = null, repulsionDelayFeedback = null, padFilterGlobal = null;
-  let delayNodeGlobal = null, repulsionCooldown = new Map();
-  let floatingNicolasElements = [], nicolasShown = false;
-  let lastTitleGrainTime = 0;
-  let padSilenceTimeout = null;
-
-  function rampGainTo(node, target, seconds) {
-    if (!node || !audioCtx) return;
-    const now = audioCtx.currentTime;
-    try {
-      node.gain.cancelScheduledValues(now);
-      node.gain.setValueAtTime(node.gain.value, now);
-      node.gain.linearRampToValueAtTime(target, now + seconds);
-    } catch(e) {}
-  }
-
-  function quantizeFreqToScale(freq, scaleCfg) {
-    const semitonesFromRoot = 12 * Math.log2(freq / scaleCfg.root);
-    const octave = Math.floor(semitonesFromRoot / 12);
-    const within = semitonesFromRoot - octave * 12;
-    let nearest = scaleCfg.scale[0], minDiff = Infinity;
-    for (const s of scaleCfg.scale) {
-      const diff = Math.abs(within - s);
-      if (diff < minDiff) { minDiff = diff; nearest = s; }
-    }
-    return scaleCfg.root * Math.pow(2, (octave * 12 + nearest) / 12);
-  }
-
-  /* ================================================================
-     4. AUDIO — DESBLOQUEO (autoplay policy en iOS/Android)
-  ================================================================ */
-  const AUDIO_UNLOCK_EVENTS = ['touchstart','pointerdown','keydown'];
-  function unlockAudioContext() {
-    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
-    AUDIO_UNLOCK_EVENTS.forEach(evt => document.removeEventListener(evt, unlockAudioContext));
-  }
-  AUDIO_UNLOCK_EVENTS.forEach(evt => document.addEventListener(evt, unlockAudioContext, { passive: true }));
-
-  /* ================================================================
-     5. AUDIO — DRONE DEL TÍTULO (adaptado a touch)
-  ================================================================ */
-  function initTitleAudio() {
-    try {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      titleDroneGain = audioCtx.createGain(); titleDroneGain.gain.value = 0.0;
-      titleDroneFilter = audioCtx.createBiquadFilter();
-      titleDroneFilter.type = 'lowpass'; titleDroneFilter.frequency.value = 600; titleDroneFilter.Q.value = 3;
-      titleDroneGain.connect(titleDroneFilter); titleDroneFilter.connect(audioCtx.destination);
-
-      titleDroneOsc1 = audioCtx.createOscillator(); titleDroneOsc1.type = 'sine';
-      titleDroneOsc2 = audioCtx.createOscillator(); titleDroneOsc2.type = 'triangle';
-      titleDroneOsc3 = audioCtx.createOscillator(); titleDroneOsc3.type = 'sawtooth';
-
-      const g1 = audioCtx.createGain(); g1.gain.value = 0.12;
-      const g2 = audioCtx.createGain(); g2.gain.value = 0.08;
-      const g3 = audioCtx.createGain(); g3.gain.value = 0.06;
-
-      titleDroneOsc1.connect(g1); g1.connect(titleDroneGain);
-      titleDroneOsc2.connect(g2); g2.connect(titleDroneGain);
-      titleDroneOsc3.connect(g3); g3.connect(titleDroneGain);
-
-      titleDroneOsc1.start(); titleDroneOsc2.start(); titleDroneOsc3.start();
-      isTitleDroneActive = true;
-    } catch(e) { console.log('Title audio error:', e); }
-  }
-  initTitleAudio();
-
-  function updateTitleDrone(normX, normY) {
-    if (!audioCtx || !isTitleDroneActive) return;
-    const freqBase = 55 + normX * 120;
-    titleDroneOsc1.frequency.value = freqBase;
-    titleDroneOsc2.frequency.value = freqBase * 1.5;
-    titleDroneOsc3.frequency.value = freqBase * 2.2;
-    titleDroneFilter.frequency.value = 400 + normX * 800;
-    rampGainTo(titleDroneGain, AUDIO_CONFIG.titleDrone.gain, AUDIO_CONFIG.titleDrone.fadeIn);
-    maybePlayTitleGrain(normX, normY);
-  }
-  function fadeOutTitleDrone() { if (!titleDroneGain || !isTitleDroneActive) return; rampGainTo(titleDroneGain, 0, AUDIO_CONFIG.titleDrone.fadeOut); }
-
-  function maybePlayTitleGrain(normX, normY) {
-    if (!audioCtx || audioCtx.state !== 'running') return;
-    const cfg = AUDIO_CONFIG.titleGrain;
-    const now = performance.now();
-    const interval = cfg.minIntervalMs + normY * 150;
-    if (now - lastTitleGrainTime < interval) return;
-    lastTitleGrainTime = now;
-
-    const t = audioCtx.currentTime;
-    const freqCenter = cfg.freqLow + normX * (cfg.freqHigh - cfg.freqLow);
-    const freq = freqCenter * (0.92 + Math.random() * 0.16);
-
-    const osc = audioCtx.createOscillator();
-    osc.type = Math.random() < 0.5 ? 'sine' : 'triangle';
-    osc.frequency.value = freq;
-
-    const grainGain = audioCtx.createGain();
-    grainGain.gain.setValueAtTime(0, t);
-    grainGain.gain.linearRampToValueAtTime(cfg.gain, t + 0.008);
-    grainGain.gain.exponentialRampToValueAtTime(0.0001, t + cfg.durationSec);
-
-    const grainFilter = audioCtx.createBiquadFilter();
-    grainFilter.type = 'bandpass'; grainFilter.frequency.value = freq * 2; grainFilter.Q.value = 6;
-
-    osc.connect(grainGain); grainGain.connect(grainFilter); grainFilter.connect(titleDroneFilter);
-    osc.start(t); osc.stop(t + cfg.durationSec + 0.02);
-  }
-
-  function shakeAndGrowTouch(touch) {
-    const rect = nameAnchor.getBoundingClientRect();
-    const tX = (touch.clientX - rect.left) / rect.width;
-    const tY = (touch.clientY - rect.top)  / rect.height;
-    const cX = Math.min(1, Math.max(0, tX));
-    const cY = Math.min(1, Math.max(0, tY));
-    const intensity = (Math.sin(cX * Math.PI) + Math.sin(cY * Math.PI)) / 2;
-    const scale = 1 + intensity * 0.15;
-    nameAnchor.style.transform = `scale(${scale})`;
-    updateTitleDrone(cX, cY);
-  }
-  function resetTitleTouch() { nameAnchor.style.transform = ''; fadeOutTitleDrone(); }
-
-  // En touch: tocar el nombre da un "blip" sonoro justo antes de navegar
-  nameAnchor.addEventListener('touchstart', (e) => { if (e.touches[0]) shakeAndGrowTouch(e.touches[0]); }, { passive: true });
-  nameAnchor.addEventListener('touchmove',  (e) => { if (e.touches[0]) shakeAndGrowTouch(e.touches[0]); }, { passive: true });
-  nameAnchor.addEventListener('touchend',   resetTitleTouch);
-
-  /* ================================================================
-     6. AUDIO — PAD DE LOS NICOLÁS VOLADORES (sólo en su pantalla)
-  ================================================================ */
-  let padVoices = [], padFilterNode = null, padReverbNode = null, padDryGain = null, padWetGain = null;
-
-  function initNicolasAudio() {
-    if (!audioCtx) return;
-    const cfg = AUDIO_CONFIG.dronePad;
-
-    padGain = audioCtx.createGain(); padGain.gain.value = 0.0; // empieza en silencio
-    padGain.connect(audioCtx.destination);
-
-    padFilterNode = audioCtx.createBiquadFilter();
-    padFilterNode.type = 'lowpass'; padFilterNode.frequency.value = cfg.filterBase; padFilterNode.Q.value = 1.8;
-
-    padDryGain = audioCtx.createGain(); padDryGain.gain.value = 1 - cfg.reverbWet;
-    padWetGain = audioCtx.createGain(); padWetGain.gain.value = cfg.reverbWet;
-    padReverbNode = buildReverb(cfg.reverbDecay);
-
-    padFilterNode.connect(padDryGain); padFilterNode.connect(padWetGain);
-    padDryGain.connect(padGain); padWetGain.connect(padReverbNode); padReverbNode.connect(padGain);
-
-    padFilterGlobal = audioCtx.createBiquadFilter();
-    padFilterGlobal.type = 'bandpass'; padFilterGlobal.frequency.value = 600; padFilterGlobal.Q.value = 1.5;
-    padFilterGlobal.connect(padReverbNode);
-
-    delayNodeGlobal = audioCtx.createDelay(); delayNodeGlobal.delayTime.value = 0.32;
-    repulsionDelayFeedback = audioCtx.createGain(); repulsionDelayFeedback.gain.value = AUDIO_CONFIG.delayFeedback;
-    interactionGain = audioCtx.createGain(); interactionGain.gain.value = 0.0;
-    interactionGain.connect(delayNodeGlobal);
-    delayNodeGlobal.connect(repulsionDelayFeedback);
-    repulsionDelayFeedback.connect(delayNodeGlobal);
-    delayNodeGlobal.connect(padFilterGlobal);
-
-    padVoices = [];
-    cfg.freqs.forEach((freq, i) => {
-      const osc = audioCtx.createOscillator();
-      osc.type = cfg.types[i]; osc.frequency.value = freq;
-      osc.detune.value = (Math.random() - 0.5) * 12;
-      const gainNode = audioCtx.createGain(); gainNode.gain.value = cfg.voiceGain;
-      osc.connect(gainNode); gainNode.connect(padFilterNode); osc.start();
-      padVoices.push({ osc, gainNode });
-    });
-    // NO se enciende el gain aquí — sólo se enciende al mover el dedo (wakeUpPad)
-  }
-
-  function buildReverb(decaySeconds) {
-    const sampleRate = audioCtx.sampleRate;
-    const length = Math.floor(sampleRate * decaySeconds);
-    const buf = audioCtx.createBuffer(2, length, sampleRate);
-    for (let ch = 0; ch < 2; ch++) {
-      const d = buf.getChannelData(ch);
-      for (let i = 0; i < length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 2.5);
-    }
-    const conv = audioCtx.createConvolver(); conv.buffer = buf; return conv;
-  }
-
-  // El sonido sólo vive mientras el dedo se mueve sobre la pantalla de los Nicolás
-  function wakeUpPad() {
-    if (!padGain || !audioCtx) return;
-    clearTimeout(padSilenceTimeout);
-    rampGainTo(padGain, AUDIO_CONFIG.padMaster.gain, 0.25);
-    padSilenceTimeout = setTimeout(() => { rampGainTo(padGain, 0, AUDIO_CONFIG.padMaster.fadeOut); }, PAD_SILENCE_DELAY);
-  }
-
-  function updatePadFromTouch(touchX, touchY, force) {
-    if (!audioCtx || !padFilterNode || !padVoices.length) return;
-    const cfg = AUDIO_CONFIG.dronePad;
-    const t = audioCtx.currentTime;
-    padFilterNode.frequency.setTargetAtTime(cfg.filterBase + force * cfg.filterMouse, t, 0.08);
-    padVoices.forEach((v, i) => {
-      const sign = i % 2 === 0 ? 1 : -1;
-      const spread = 1 + i * 0.4;
-      v.osc.detune.setTargetAtTime(sign * force * cfg.detuneRange * spread, t, 0.12);
-      v.gainNode.gain.setTargetAtTime(cfg.voiceGain + force * cfg.gainMouse, t, 0.06);
-    });
-  }
-
-  function playRepulsionTexture(force, xPos, yPos, elementId) {
-    if (!audioCtx || audioCtx.state !== 'running') return;
-    if (force < 0.08) return;
-    const now = Date.now();
-    const lastTime = repulsionCooldown.get(elementId) || 0;
-    if (now - lastTime < 55) return;
-    repulsionCooldown.set(elementId, now);
-
-    const nowTime = audioCtx.currentTime;
-    const normY = yPos / window.innerHeight;
-    const rawFreq = 90 + force * 320 + normY * 180;
-    const freqBase = quantizeFreqToScale(rawFreq, AUDIO_CONFIG.cluster);
-
-    const panner = audioCtx.createStereoPanner();
-    panner.pan.value = Math.max(-1, Math.min(1, (xPos / window.innerWidth) * 2 - 1));
-    panner.connect(interactionGain);
-
-    const osc1 = audioCtx.createOscillator(); osc1.type = 'sawtooth'; osc1.frequency.value = freqBase;
-    const osc2 = audioCtx.createOscillator(); osc2.type = 'square';   osc2.frequency.value = freqBase * (1.4 + force * 0.3);
-    const osc3 = audioCtx.createOscillator(); osc3.type = 'triangle'; osc3.frequency.value = freqBase * (0.65 - force * 0.15);
-    const gain = audioCtx.createGain();
-    const { base: texBase, range: texRange } = AUDIO_CONFIG.texture;
-    gain.gain.setValueAtTime(0, nowTime);
-    gain.gain.linearRampToValueAtTime(texBase + force * texRange, nowTime + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, nowTime + 0.55);
-    osc1.connect(gain); osc2.connect(gain); osc3.connect(gain); gain.connect(panner);
-    [osc1, osc2, osc3].forEach(osc => { osc.start(); osc.stop(nowTime + 0.55); });
-  }
-
-  // Repulsión + sonido, alimentado por touchmove (arrastrar el dedo)
-  function applyRepulsionWithPad(touchX, touchY) {
-    if (!floatingNicolasElements.length) return;
-    const forceRadius = 150;
-    let maxForce = 0, forceSum = 0, count = 0;
-
-    floatingNicolasElements.forEach(el => {
-      if (!el.parentNode) return;
-      const rect = el.getBoundingClientRect();
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top  + rect.height / 2;
-      const dx = centerX - touchX, dy = centerY - touchY;
-      const dist = Math.hypot(dx, dy);
-
-      if (dist < forceRadius) {
-        const force = Math.min(0.9, (forceRadius - dist) / forceRadius);
-        maxForce = Math.max(maxForce, force); forceSum += force; count++;
-        const angle = Math.atan2(dy, dx);
-        el.style.left = (parseFloat(el.style.left) + Math.cos(angle) * force * 14) + 'px';
-        el.style.top  = (parseFloat(el.style.top)  + Math.sin(angle) * force * 14) + 'px';
-        el.style.transform = `scale(${1 + force * 0.22}) rotate(${force * 12}deg)`;
-        if (force > 0.15 && Math.random() < 0.12) playRepulsionTexture(force, centerX, centerY, el.id);
-      } else { el.style.transform = ''; }
-    });
-
-    const avgForce = count > 0 ? forceSum / count : 0;
-    const dynamicForce = Math.max(maxForce, avgForce * 0.65);
-
-    if (audioCtx && audioCtx.state === 'running') {
-      updatePadFromTouch(touchX, touchY, dynamicForce);
-      if (interactionGain) {
-        const { base, range } = AUDIO_CONFIG.interaction;
-        interactionGain.gain.value = base + dynamicForce * range;
-      }
-    }
-  }
-
-  function fadeOutNicolasSound() {
-    if (!audioCtx) return;
-    clearTimeout(padSilenceTimeout);
-    if (interactionGain) {
-      try { interactionGain.gain.cancelScheduledValues(audioCtx.currentTime); interactionGain.gain.setValueAtTime(0, audioCtx.currentTime); } catch(e) {}
-    }
-    rampGainTo(padGain, 0, AUDIO_CONFIG.padMaster.fadeOut);
-    rampGainTo(repulsionDelayFeedback, 0, AUDIO_CONFIG.padMaster.fadeOut);
-  }
-
-  /* ================================================================
-     7. NICOLÁS VOLADORES — generación + tap para navegar
-  ================================================================ */
-  function showMultipleNicolas() {
-    const container = document.body;
-    const animationTypes = ['float-up','float-down','float-left','float-right','pulse-fade','spin-rotate','wave-motion','bounce-zoom'];
-    const fontSizes     = [0.8,1.0,1.3,1.6,1.8,2.0,2.2,1.4];
-    const totalElements = FLOATING_ROWS * FLOATING_PER_ROW;
-    const viewportHeight = window.innerHeight, viewportWidth = window.innerWidth;
-    const rowHeight = viewportHeight / FLOATING_ROWS;
-
-    floatingNicolasElements = [];
-    initNicolasAudio();
-    document.body.classList.add('nicolas-active');
-
-    for (let i = 0; i < totalElements; i++) {
-      const link = document.createElement('a');
-      link.textContent = 'Nicolás';
-      link.className = 'floating-nicolas';
-      link.href = '#';
-      link.id = `nicolas_${i}`;
-      const row = Math.floor(i / FLOATING_PER_ROW), col = i % FLOATING_PER_ROW;
-      link.style.fontSize = fontSizes[Math.floor(Math.random() * fontSizes.length)] + 'rem';
-      link.style.left = ((col / FLOATING_PER_ROW) * viewportWidth + Math.random() * (viewportWidth * 0.08)) + 'px';
-      link.style.top  = (row * rowHeight + Math.random() * (rowHeight * 0.3)) + 'px';
-      const animation = animationTypes[i % animationTypes.length];
-      const duration  = 4 + Math.random() * 4, delay = Math.random() * 0.5;
-      link.style.animation = `${animation} ${duration}s ease-in-out ${delay}s infinite`;
-      link.style.opacity   = Math.random() * 0.3 + 0.7;
-      container.appendChild(link);
-      floatingNicolasElements.push(link);
-      link.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); showInternalPage(link); });
-    }
-  }
-
-  function removeFloatingNicolas() {
-    floatingNicolasElements.forEach(el => { if (el.parentNode) el.parentNode.removeChild(el); });
-    floatingNicolasElements = [];
-    document.body.classList.remove('nicolas-active');
-  }
-
-  /* ================================================================
-     8. INACTIVIDAD (basado en touch, no en mousemove)
-  ================================================================ */
-  let inactivityTimeout, isInactive = false, messageTyping = false, messageFinished = false;
-
-  function showInactivityMessage() {
-    if (nicolasShown) return;
-    isInactive = true; messageTyping = true; messageFinished = false;
-    title.innerHTML = '';
-    const hint = document.getElementById('name-hint');
-    if (hint) hint.style.opacity = '0';
-    const messageText = "Still there? Tap my name!";
-    let idx = 0;
-    function typeMessage() {
-      if (idx < messageText.length) { title.textContent += messageText[idx++]; setTimeout(typeMessage, 60); }
-      else { messageTyping = false; messageFinished = true; }
-    }
-    typeMessage();
-  }
-
-  function restoreOriginalText() {
-    if (!isInactive) return;
-    isInactive = false; nicolasShown = true;
-    const hint = document.getElementById('name-hint');
-    if (hint) hint.style.opacity = '0';
-    title.classList.add('fade-out');
-    setTimeout(() => { title.innerHTML = ''; title.classList.remove('fade-out'); showMultipleNicolas(); }, 200);
-  }
-
-  function resetInactivityTimer() {
-    if (messageTyping) return;
-    clearTimeout(inactivityTimeout);
-    if (messageFinished && !nicolasShown) restoreOriginalText();
-    if (!nicolasShown) inactivityTimeout = setTimeout(showInactivityMessage, INACTIVITY_MS);
-  }
-
-  /* ================================================================
-     9. TRANSICIÓN DE PÁGINA
-  ================================================================ */
   function createFadeOverlay() {
     const overlay = document.createElement('div');
-    overlay.className = 'page-fade-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity 0.2s ease;z-index:9999;';
     document.body.appendChild(overlay);
-    requestAnimationFrame(() => overlay.classList.add('active'));
+    requestAnimationFrame(() => overlay.style.opacity = '1');
     return overlay;
   }
-
-  function showInternalPage(sourceElement) {
-    const landingPage  = document.getElementById('landing-page');
-    const internalPage = document.getElementById('internal-page');
-    if (!internalPage || !landingPage) return;
-
-    fadeOutNicolasSound(); fadeOutTitleDrone();
-    const overlay = createFadeOverlay();
-    if (sourceElement) sourceElement.classList.add('fade-out-click');
-
-    setTimeout(() => {
-      landingPage.style.display = 'none';
-      internalPage.classList.add('show');
-      internalPage.setAttribute('aria-hidden','false');
-      document.body.classList.add('landing-hidden');
-      removeFloatingNicolas();
-      clearTimeout(inactivityTimeout);
-      if (sourceElement) sourceElement.classList.remove('fade-out-click');
-      overlay.classList.remove('active');
-      setTimeout(() => { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 240);
-      initializeNavInactivityTimer();
-      initReadingAudio();
-      wrapWordsForSound();
-      attachLinkSounds();
-      attachSubPageNavigation();
-    }, 220);
-  }
-
-  /* ================================================================
-     10. AUDIO — PALABRAS / LINKS (tap)
-  ================================================================ */
-  let readingGain = null, readingDelay = null, readingFeedback = null, wordsWrapped = false;
-
-  function initReadingAudio() {
-    if (!audioCtx || readingGain) return;
-    readingGain = audioCtx.createGain();
-    readingGain.gain.value = AUDIO_CONFIG.reading.gain;
-    readingGain.connect(audioCtx.destination);
-    readingDelay    = audioCtx.createDelay(); readingDelay.delayTime.value = AUDIO_CONFIG.reading.delayTime;
-    readingFeedback = audioCtx.createGain();  readingFeedback.gain.value   = AUDIO_CONFIG.reading.feedback;
-    readingGain.connect(readingDelay);
-    readingDelay.connect(readingFeedback);
-    readingFeedback.connect(readingDelay);
-    readingDelay.connect(audioCtx.destination);
-  }
-
-  function playWordNote(word) {
-    if (!audioCtx || audioCtx.state !== 'running') return;
-    initReadingAudio();
-    const cfg = AUDIO_CONFIG.reading;
-    const t = audioCtx.currentTime;
-    const degree = cfg.scale[word.length % cfg.scale.length];
-    const octaveShift = Math.floor(word.length / cfg.scale.length) % 2;
-    const semitones = degree - octaveShift * 12;
-    const freq = cfg.root * Math.pow(2, semitones / 12);
-    const osc = audioCtx.createOscillator(); osc.type = 'triangle'; osc.frequency.value = freq;
-    const gain = audioCtx.createGain();
-    gain.gain.setValueAtTime(0, t);
-    gain.gain.linearRampToValueAtTime(cfg.gain, t + 0.015);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t + cfg.duration);
-    const panner = audioCtx.createStereoPanner(); panner.pan.value = (Math.random() * 2 - 1);
-    osc.connect(gain); gain.connect(panner); panner.connect(readingGain);
-    osc.start(t); osc.stop(t + cfg.duration + 0.05);
-  }
-
-  function playLinkSound(linkName) {
-    if (!audioCtx || audioCtx.state !== 'running') return;
-    const t = audioCtx.currentTime;
-    const G = AUDIO_CONFIG.linkSound.gain;
-    function makeClipper() {
-      const dist = audioCtx.createWaveShaper();
-      const curve = new Float32Array(256);
-      for (let j = 0; j < 256; j++) { const x = (j * 2) / 256 - 1; curve[j] = x < 0 ? -1 : 1; }
-      dist.curve = curve; return dist;
-    }
-    const presets = {
-      'Short Films':     [1200, 5000, 6, 0.016, 0.50],
-      'Electroacoustic': [80,   700, 5, 0.030, 0.55],
-      'Instruments':     [400, 3200, 7, 0.020, 0.48],
-      'Contact':         [180,  700, 4, 0.038, 0.58],
-    };
-    const [freqMin, freqMax, count, spacing, gainMult] = presets[linkName] ?? [200, 5000, 6, 0.020, 0.45];
-    for (let i = 0; i < count; i++) {
-      const offset = i * spacing + (Math.random() - 0.5) * spacing * 0.4;
-      const osc = audioCtx.createOscillator(); osc.type = 'square';
-      osc.frequency.value = freqMin + Math.random() * (freqMax - freqMin);
-      const g = audioCtx.createGain();
-      g.gain.setValueAtTime(G * gainMult, t + offset);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + offset + 0.013);
-      const clip = makeClipper();
-      osc.connect(clip); clip.connect(g); g.connect(audioCtx.destination);
-      osc.start(t + offset); osc.stop(t + offset + 0.018);
-    }
-  }
-
-  function wrapWordsForSound() {
-    if (wordsWrapped) return;
-    wordsWrapped = true;
-    document.querySelectorAll('.page-left-column p').forEach(p => {
-      const tokens = p.textContent.split(/(\s+)/);
-      p.innerHTML = '';
-      tokens.forEach(token => {
-        if (token.trim() === '') { p.appendChild(document.createTextNode(token)); }
-        else {
-          const span = document.createElement('span');
-          span.className = 'word-note'; span.textContent = token;
-          span.addEventListener('touchstart', () => {
-            playWordNote(token);
-            span.classList.add('tapped');
-            setTimeout(() => span.classList.remove('tapped'), 220);
-          }, { passive: true });
-          p.appendChild(span);
-        }
-      });
-    });
-  }
-
-  function attachLinkSounds() {
-    document.querySelectorAll('.mobile-nav-link').forEach(link => {
-      if (link.dataset.soundAttached) return;
-      link.dataset.soundAttached = '1';
-      link.addEventListener('touchstart', () => playLinkSound(link.textContent.trim()), { passive: true });
-    });
-  }
-
-  /* ================================================================
-     11. TAB BAR — ciclo de textos ("Really, are you reading?")
-  ================================================================ */
-  let navInactivityTimeout, navSecondChangeTimeout, navIsChanged = false, navIsChangedToSecond = false, originalNavTexts = [];
-  let changeMsgTimeouts = [];
-
-  function initializeNavInactivityTimer() {
-    if (originalNavTexts.length === 0)
-      document.querySelectorAll('.mobile-nav-link').forEach(link => originalNavTexts.push(link.textContent));
-    resetNavInactivityTimer();
-  }
-
-  function resetNavInactivityTimer() {
-    clearTimeout(navInactivityTimeout);
-    clearTimeout(navSecondChangeTimeout);
-    changeMsgTimeouts.forEach(id => clearTimeout(id));
-    changeMsgTimeouts = [];
-    if (navIsChanged || navIsChangedToSecond) restoreOriginalNavTexts();
-    navInactivityTimeout = setTimeout(() => changeNavToMessage(), INACTIVITY_MS);
-  }
-
-  function changeNavToMessage() {
-    changeMsgTimeouts.forEach(id => clearTimeout(id));
-    changeMsgTimeouts = [];
-    const links = document.querySelectorAll('.mobile-nav-link');
-    const newTexts = ['Really','are','you','reading?'];
-    links.forEach((link, index) => {
-      link.classList.add('fade-out');
-      const id = setTimeout(() => {
-        if (index < newTexts.length) link.textContent = newTexts[index];
-        link.classList.remove('fade-out');
-      }, 600);
-      changeMsgTimeouts.push(id);
-    });
-    navIsChanged = true;
-    navSecondChangeTimeout = setTimeout(() => changeNavToSecondMessage(), INACTIVITY_MS);
-  }
-
-  function changeNavToSecondMessage() {
-    changeMsgTimeouts.forEach(id => clearTimeout(id));
-    changeMsgTimeouts = [];
-    const links = document.querySelectorAll('.mobile-nav-link');
-    const newTexts = ['Whoa,',"you're",'reading!','Thanks! :)'];
-    links.forEach((link, index) => {
-      link.classList.add('fade-out');
-      const id = setTimeout(() => {
-        if (index < newTexts.length) link.textContent = newTexts[index];
-        link.classList.remove('fade-out');
-      }, 600);
-      changeMsgTimeouts.push(id);
-    });
-    navIsChanged = true; navIsChangedToSecond = true;
-  }
-
-  function restoreOriginalNavTexts() {
-    const links = document.querySelectorAll('.mobile-nav-link');
-    links.forEach((link, index) => {
-      link.classList.remove('fade-out'); link.classList.add('fade-in');
-      if (index < originalNavTexts.length) {
-        link.textContent = originalNavTexts[index];
-        delete link.dataset.soundAttached;
-      }
-      setTimeout(() => link.classList.remove('fade-in'), 400);
-    });
-    navIsChanged = false; navIsChangedToSecond = false;
-    attachLinkSounds();
-  }
-
-  /* ================================================================
-     12. SUB-PAGES — show/hide, pill nav, audio player
-  ================================================================ */
-  let activeSubPage = null;
 
   function showSubPage(pageId) {
     const subPage = document.getElementById(pageId);
@@ -1304,9 +564,9 @@
       subPage.classList.add('show');
       subPage.scrollTop = 0;
       activeSubPage = subPage;
-      overlay.classList.remove('active');
-      setTimeout(() => { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 240);
-    }, 200);
+      overlay.style.opacity = '0';
+      setTimeout(() => overlay.remove(), 220);
+    }, 180);
   }
 
   function hideSubPage() {
@@ -1315,132 +575,83 @@
     setTimeout(() => {
       activeSubPage.classList.remove('show');
       activeSubPage = null;
-      overlay.classList.remove('active');
-      setTimeout(() => { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 240);
-    }, 200);
+      overlay.style.opacity = '0';
+      setTimeout(() => overlay.remove(), 220);
+    }, 180);
   }
 
-  function attachSubPageNavigation() {
-    const internalPage = document.getElementById('internal-page');
-    if (!internalPage || internalPage.dataset.navAttached) return;
-    internalPage.dataset.navAttached = '1';
-    internalPage.addEventListener('click', (e) => {
-      const link = e.target.closest('.mobile-nav-link[data-subpage]');
-      if (link) { e.preventDefault(); e.stopPropagation(); showSubPage(link.dataset.subpage); }
+  document.querySelectorAll('.toc-item[data-subpage]').forEach(link => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      showSubPage(link.dataset.subpage);
     });
-  }
+  });
 
-  function setupFilmNav() {
-    document.querySelectorAll('.film-pill').forEach(pill => {
-      pill.addEventListener('click', (e) => {
-        e.preventDefault();
-        const targetId = pill.getAttribute('href').substring(1);
-        const target   = document.getElementById(targetId);
-        const subPage  = pill.closest('.sub-page');
-        if (target && subPage) {
-          const headerH = subPage.querySelector('.sub-page-header').offsetHeight;
-          subPage.scrollTo({ top: target.offsetTop - headerH - 14, behavior: 'smooth' });
-        }
-      });
+  /* 2. Pill nav — scroll dentro de la sub-page activa */
+  document.querySelectorAll('.pill-nav a').forEach(pill => {
+    pill.addEventListener('click', (e) => {
+      e.preventDefault();
+      const targetId = pill.getAttribute('href').substring(1);
+      const target   = document.getElementById(targetId);
+      const subPage  = pill.closest('.sub-page');
+      if (target && subPage) {
+        const headerH = subPage.querySelector('.sub-page-header').offsetHeight;
+        subPage.scrollTo({ top: target.offsetTop - headerH - 14, behavior: 'smooth' });
+      }
     });
-  }
+  });
 
-  // Reproductor de audio — carga perezosa (no descarga hasta tocar ▶)
-  function initAudioPlayers() {
-    document.querySelectorAll('.custom-audio-player').forEach(function (player) {
-      if (player.dataset.initDone) return;
-      player.dataset.initDone = '1';
-      var src     = player.dataset.src;
-      var playBtn = player.querySelector('.cap-play-btn');
-      var seekBar = player.querySelector('.cap-seek');
-      var timeEl  = player.querySelector('.cap-time');
-      var audio   = null;
-      var loaded  = false;
+  /* 3. Audio player */
+  document.querySelectorAll('.audio-player').forEach(player => {
+    const src     = player.dataset.src;
+    const playBtn = player.querySelector('.audio-play-btn');
+    const seekBar = player.querySelector('.audio-seek');
+    const timeEl  = player.querySelector('.audio-time');
+    let audio = null, loaded = false;
 
-      function fmt(s) {
-        if (!isFinite(s) || isNaN(s)) return '–:––';
-        var m = Math.floor(s / 60);
-        var sec = Math.floor(s % 60);
-        return m + ':' + (sec < 10 ? '0' : '') + sec;
-      }
-      function setFill(pct) { seekBar.style.setProperty('--cap-fill', pct + '%'); }
-      function updateUI() {
-        if (!audio || !audio.duration) return;
-        var pct = (audio.currentTime / audio.duration) * 100;
-        seekBar.value = pct; setFill(pct);
-        timeEl.textContent = fmt(audio.currentTime) + ' / ' + fmt(audio.duration);
-      }
-      function initAudio() {
-        if (loaded) return;
-        loaded = true;
-        playBtn.classList.add('cap-loading'); playBtn.textContent = '…';
-        audio = new Audio(); audio.preload = 'none';
-        audio.addEventListener('loadedmetadata', function () { timeEl.textContent = '0:00 / ' + fmt(audio.duration); });
-        audio.addEventListener('canplay', function () {
-          playBtn.classList.remove('cap-loading'); playBtn.textContent = '⏸';
-          audio.play().catch(function () { playBtn.textContent = '▶'; });
-        });
-        audio.addEventListener('timeupdate', updateUI);
-        audio.addEventListener('ended', function () {
-          playBtn.textContent = '▶'; seekBar.value = 0; setFill(0);
-          timeEl.textContent = '0:00 / ' + fmt(audio.duration);
-        });
-        audio.addEventListener('error', function () {
-          playBtn.classList.remove('cap-loading'); playBtn.textContent = '✕';
-          timeEl.textContent = 'Error al cargar audio';
-        });
-        audio.src = src; audio.load();
-      }
-      playBtn.addEventListener('click', function () {
-        if (!loaded) { initAudio(); return; }
-        if (audio.paused) { audio.play(); playBtn.textContent = '⏸'; }
-        else { audio.pause(); playBtn.textContent = '▶'; }
-      });
-      seekBar.addEventListener('input', function () {
-        if (!audio || !audio.duration) return;
-        var pct = parseFloat(seekBar.value);
-        audio.currentTime = (pct / 100) * audio.duration;
-        setFill(pct);
-      });
-    });
-  }
-
-  /* ================================================================
-     13. INIT
-  ================================================================ */
-  document.addEventListener('touchmove', (e) => {
-    resetInactivityTimer();
-    // El pad/repulsión sólo vive en la pantalla de los Nicolás voladores
-    if (nicolasShown && document.body.classList.contains('nicolas-active') && e.touches[0]) {
-      e.preventDefault(); // evita que el drag scrollee la página mientras juegas con el sonido
-      applyRepulsionWithPad(e.touches[0].clientX, e.touches[0].clientY);
-      wakeUpPad();
+    function fmt(s) {
+      if (!isFinite(s) || isNaN(s)) return '–:––';
+      const m = Math.floor(s / 60), sec = Math.floor(s % 60);
+      return m + ':' + (sec < 10 ? '0' : '') + sec;
     }
-  }, { passive: false });
-
-  document.addEventListener('touchstart', () => {
-    resetInactivityTimer();
-    const internalPage = document.getElementById('internal-page');
-    if (internalPage && internalPage.classList.contains('show') && !activeSubPage) resetNavInactivityTimer();
-  }, { passive: true });
-
-  document.addEventListener('scroll', () => {
-    const internalPage = document.getElementById('internal-page');
-    if (internalPage && internalPage.classList.contains('show') && !activeSubPage) resetNavInactivityTimer();
-  }, { passive: true, capture: true });
-
-  window.addEventListener('DOMContentLoaded', () => {
-    typeNextChar();
-    resetInactivityTimer();
-    setupFilmNav();
-    initAudioPlayers();
-    document.addEventListener('click', (event) => {
-      const target = event.target.closest('#name-link, .floating-nicolas');
-      if (target) { event.preventDefault(); showInternalPage(target); }
+    function setFill(pct) { seekBar.style.setProperty('--fill', pct + '%'); }
+    function updateUI() {
+      if (!audio || !audio.duration) return;
+      const pct = (audio.currentTime / audio.duration) * 100;
+      seekBar.value = pct; setFill(pct);
+      timeEl.textContent = fmt(audio.currentTime) + ' / ' + fmt(audio.duration);
+    }
+    function initAudio() {
+      if (loaded) return;
+      loaded = true;
+      playBtn.classList.add('loading'); playBtn.textContent = '…';
+      audio = new Audio(); audio.preload = 'none';
+      audio.addEventListener('loadedmetadata', () => { timeEl.textContent = '0:00 / ' + fmt(audio.duration); });
+      audio.addEventListener('canplay', () => {
+        playBtn.classList.remove('loading'); playBtn.textContent = '⏸';
+        audio.play().catch(() => { playBtn.textContent = '▶'; });
+      });
+      audio.addEventListener('timeupdate', updateUI);
+      audio.addEventListener('ended', () => {
+        playBtn.textContent = '▶'; seekBar.value = 0; setFill(0);
+        timeEl.textContent = '0:00 / ' + fmt(audio.duration);
+      });
+      audio.addEventListener('error', () => {
+        playBtn.classList.remove('loading'); playBtn.textContent = '✕';
+        timeEl.textContent = 'Error al cargar audio';
+      });
+      audio.src = src; audio.load();
+    }
+    playBtn.addEventListener('click', () => {
+      if (!loaded) { initAudio(); return; }
+      if (audio.paused) { audio.play(); playBtn.textContent = '⏸'; }
+      else { audio.pause(); playBtn.textContent = '▶'; }
     });
-    window.addEventListener('resize', () => {
-      clearTimeout(window._posTimeout);
-      window._posTimeout = setTimeout(() => { if (typingComplete) positionHint(); }, 120);
+    seekBar.addEventListener('input', () => {
+      if (!audio || !audio.duration) return;
+      const pct = parseFloat(seekBar.value);
+      audio.currentTime = (pct / 100) * audio.duration;
+      setFill(pct);
     });
   });
 </script>
