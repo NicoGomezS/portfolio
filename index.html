@@ -1,6 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script>
+    (function () {
+      var isTouch = ('ontouchstart' in window) ||
+                    (navigator.maxTouchPoints > 0) ||
+                    (navigator.msMaxTouchPoints > 0);
+      var isNarrow = window.innerWidth <= 820; // cubre móviles y la mayoría de tablets en vertical
+
+      // Solo redirige si es táctil Y angosto — un laptop con pantalla táctil no cae aquí
+      if (isTouch && isNarrow) {
+        window.location.replace('indexMovil.html');
+      }
+    })();
+  </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
   <title>Nicolás Gómez Salamanca</title>
