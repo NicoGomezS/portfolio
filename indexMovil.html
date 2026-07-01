@@ -297,18 +297,47 @@
      CONTACT — caja terminal, sin info duplicada
   ================================================================ */
   .contact-terminal {
-    border: 1px solid var(--accent-faint);
-    padding: 1.6rem 1.4rem;
-    background: rgba(0,0,0,0.1);
+    border: 1px solid rgba(178,255,89,0.28);
+    padding: 1.2rem 1rem 1.1rem;
+    background: linear-gradient(135deg, rgba(0,0,0,0.16), rgba(178,255,89,0.06));
+    box-shadow: inset 0 0 0 1px rgba(178,255,89,0.08), 0 0 18px rgba(178,255,89,0.08);
   }
-  .contact-terminal-header { font-size: 0.78rem; opacity: 0.4; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 1.2rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--accent-faint); }
-  .contact-terminal-link { display: block; text-decoration: none; color: var(--accent); font-size: clamp(1rem,4.2vw,1.2rem); line-height: 1.5; margin-bottom: 0.9rem; padding-bottom: 0.9rem; border-bottom: 1px solid var(--accent-faint); word-break: break-word; }
-  .contact-terminal-link:last-of-type { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
-  .contact-terminal-link:active { color: #e8ff99; }
+  .contact-terminal-header {
+    font-size: 0.78rem; opacity: 0.5; letter-spacing: 0.1em; text-transform: uppercase;
+    margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid rgba(178,255,89,0.18);
+  }
+  .contact-terminal-link {
+    display: block; text-decoration: none; color: var(--accent); font-size: clamp(1rem,4.2vw,1.2rem);
+    line-height: 1.5; margin-bottom: 0.8rem; padding: 0.7rem 0.8rem; border: 1px solid rgba(178,255,89,0.18);
+    background: rgba(178,255,89,0.05); word-break: break-word; transition: transform 0.15s ease, background 0.15s ease;
+  }
+  .contact-terminal-link:last-of-type { margin-bottom: 0; }
+  .contact-terminal-link:active { color: #e8ff99; background: rgba(178,255,89,0.12); transform: translateY(-1px); }
   .contact-terminal-label { display: block; font-size: 0.74rem; opacity: 0.45; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.15rem; }
-  .contact-terminal-prompt { font-size: 0.96rem; opacity: 0.5; margin-top: 1.3rem; }
+  .contact-terminal-prompt { font-size: 0.96rem; opacity: 0.6; margin-top: 1rem; }
   .blink-cursor { display: inline-block; width: 0.6ch; height: 0.85em; background: var(--accent); animation: blink 0.8s steps(2) infinite; vertical-align: middle; margin-left: 0.05em; }
   @keyframes blink { 0%,50% { opacity: 1; } 50.1%,100% { opacity: 0; } }
+
+  .random-mode-link {
+    display: flex; align-items: center; justify-content: space-between; gap: 0.8rem;
+    text-decoration: none; color: var(--accent); padding: 0.35rem 0.2rem; margin-top: 1.4rem;
+    text-shadow: 0 0 6px rgba(178,255,89,0.35);
+  }
+  .random-mode-link:active { opacity: 0.75; }
+  .random-mode-link .toc-label { font-size: clamp(1.2rem, 6vw, 1.55rem); }
+  .random-mode-link .toc-arrow { font-size: 1.2rem; }
+
+  .random-overlay {
+    position: fixed; inset: 0; pointer-events: none; z-index: 250; overflow: hidden;
+  }
+  .random-nicolas {
+    position: absolute; color: var(--accent); font-family: "VT323", monospace; font-size: clamp(1rem, 4.2vw, 1.35rem);
+    pointer-events: none; user-select: none; text-shadow: 0 0 8px rgba(178,255,89,0.25);
+    will-change: transform;
+    opacity: 0.8;
+  }
+  .random-nicolas.active { animation: drift-random 1.2s ease-in-out infinite alternate; }
+  @keyframes drift-random { 0% { transform: translate(0,0) rotate(0deg); } 100% { transform: translate(8px,-10px) rotate(6deg); } }
 
   footer {
     position: relative; z-index: 1;
@@ -356,6 +385,10 @@
     </a>
     <a href="#" class="toc-item" data-subpage="page-contact">
       <span class="toc-label">Contact</span>
+      <span class="toc-arrow">↳</span>
+    </a>
+    <a href="#" class="toc-item random-mode-link" data-random-mode="true">
+      <span class="toc-label">Random Mode</span>
       <span class="toc-arrow">↳</span>
     </a>
   </nav>
@@ -556,6 +589,8 @@
 </div>
 
 <!-- ===================== SUB-PAGE: CONTACT ===================== -->
+<div class="random-overlay" id="random-overlay" aria-hidden="true"></div>
+
 <div id="page-contact" class="sub-page">
   <div class="sub-page-header">
     <div class="sub-page-header-top">
@@ -730,6 +765,14 @@
   /* 1. Sub-pages */
   let activeSubPage = null;
 
+  let randomModeActive = false;
+  let randomMotionActive = false;
+  let randomAudioCtx = null;
+  let randomGain = null;
+  let randomFrame = null;
+  let randomLastX = 0;
+  let randomLastY = 0;
+
   function createFadeOverlay() {
     const overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity 0.2s ease;z-index:9999;';
@@ -770,6 +813,13 @@
     });
   });
 
+  document.querySelectorAll('.random-mode-link').forEach(link => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      toggleRandomMode();
+    });
+  });
+
   /* 2. Pill nav — scroll dentro de la sub-page activa */
   document.querySelectorAll('.pill-nav a').forEach(pill => {
     pill.addEventListener('click', (e) => {
@@ -783,6 +833,99 @@
       }
     });
   });
+
+  function initRandomAudio() {
+    if (randomAudioCtx) return;
+    const AudioCtor = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtor) return;
+    randomAudioCtx = new AudioCtor();
+    randomGain = randomAudioCtx.createGain();
+    randomGain.gain.value = 0.0001;
+    randomGain.connect(randomAudioCtx.destination);
+  }
+
+  function playRandomTone(x, y) {
+    initRandomAudio();
+    if (!randomAudioCtx || !randomGain) return;
+    if (randomAudioCtx.state === 'suspended') randomAudioCtx.resume().catch(() => {});
+    const now = randomAudioCtx.currentTime;
+    const osc = randomAudioCtx.createOscillator();
+    const osc2 = randomAudioCtx.createOscillator();
+    const gain = randomAudioCtx.createGain();
+    const filter = randomAudioCtx.createBiquadFilter();
+    const freq = 180 + (x / window.innerWidth) * 150;
+    const freq2 = 260 + (y / window.innerHeight) * 180;
+    osc.type = 'triangle'; osc2.type = 'sine';
+    osc.frequency.setValueAtTime(freq, now);
+    osc.frequency.exponentialRampToValueAtTime(freq * 0.8, now + 0.18);
+    osc2.frequency.setValueAtTime(freq2, now);
+    osc2.frequency.exponentialRampToValueAtTime(freq2 * 0.7, now + 0.16);
+    filter.type = 'bandpass'; filter.frequency.value = 700 + Math.random() * 400; filter.Q.value = 1.2;
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.018, now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+    osc.connect(filter); osc2.connect(filter); filter.connect(gain); gain.connect(randomGain);
+    osc.start(now); osc2.start(now); osc.stop(now + 0.2); osc2.stop(now + 0.2);
+  }
+
+  function spawnRandomNicolas(x, y) {
+    const overlay = document.getElementById('random-overlay');
+    if (!overlay) return;
+    const nicolas = document.createElement('div');
+    nicolas.className = 'random-nicolas';
+    nicolas.textContent = 'Nicolás';
+    nicolas.style.left = x + 'px';
+    nicolas.style.top = y + 'px';
+    overlay.appendChild(nicolas);
+    requestAnimationFrame(() => nicolas.classList.add('active'));
+    setTimeout(() => nicolas.remove(), 1600);
+  }
+
+  function updateRandomMode(x, y) {
+    if (!randomModeActive) return;
+    const dx = x - randomLastX;
+    const dy = y - randomLastY;
+    if (Math.hypot(dx, dy) > 8) {
+      playRandomTone(x, y);
+      spawnRandomNicolas(x, y);
+      randomLastX = x; randomLastY = y;
+    }
+  }
+
+  function toggleRandomMode() {
+    randomModeActive = !randomModeActive;
+    const overlay = document.getElementById('random-overlay');
+    if (!overlay) return;
+    if (randomModeActive) {
+      overlay.innerHTML = '';
+      randomLastX = window.innerWidth / 2;
+      randomLastY = window.innerHeight / 2;
+      if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+        DeviceMotionEvent.requestPermission().then(() => { randomMotionActive = true; }).catch(() => { randomMotionActive = false; });
+      } else {
+        randomMotionActive = true;
+      }
+      document.querySelector('.random-mode-link .toc-label').textContent = 'Random Mode • On';
+    } else {
+      randomMotionActive = false;
+      document.querySelector('.random-mode-link .toc-label').textContent = 'Random Mode';
+      overlay.innerHTML = '';
+    }
+  }
+
+  window.addEventListener('deviceorientation', (e) => {
+    if (!randomModeActive || !randomMotionActive) return;
+    const x = (e.gamma || 0) + 45;
+    const y = (e.beta || 0) + 45;
+    const px = Math.max(20, Math.min(window.innerWidth - 20, (x / 90) * window.innerWidth));
+    const py = Math.max(20, Math.min(window.innerHeight - 20, (y / 90) * window.innerHeight));
+    updateRandomMode(px, py);
+  }, { passive: true });
+
+  window.addEventListener('pointermove', (e) => {
+    if (!randomModeActive || randomMotionActive) return;
+    updateRandomMode(e.clientX, e.clientY);
+  }, { passive: true });
 
   /* 3. Audio player */
   document.querySelectorAll('.audio-player').forEach(player => {
