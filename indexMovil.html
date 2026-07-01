@@ -53,45 +53,8 @@
     scroll-snap-align: start;
   }
   .touch-ripple {
-    position: fixed;
-    width: 110px;
-    height: 110px;
-    border-radius: 999px;
-    pointer-events: none;
-    transform: translate(-50%, -50%) scale(0.5);
-    background: radial-gradient(circle, rgba(178,255,89,0.42) 0%, rgba(178,255,89,0.18) 42%, rgba(178,255,89,0) 74%);
-    mix-blend-mode: screen;
-    z-index: 400;
-    animation: touch-ripple 0.8s ease-out forwards;
+    display: none;
   }
-  @keyframes touch-ripple {
-    from { opacity: 0.95; transform: translate(-50%, -50%) scale(0.4); }
-    to { opacity: 0; transform: translate(-50%, -50%) scale(2.6); }
-  }
-  .tap-burst {
-    transform: translateY(-2px) scale(1.03);
-    box-shadow: 0 0 0 1px rgba(178,255,89,0.6), 0 0 18px rgba(178,255,89,0.28);
-    background: rgba(178,255,89,0.11);
-    border-color: rgba(178,255,89,0.8) !important;
-  }
-  .tap-hint {
-    position: fixed;
-    left: 50%; bottom: calc(1rem + env(safe-area-inset-bottom, 0));
-    transform: translateX(-50%);
-    z-index: 500;
-    padding: 0.55rem 0.85rem;
-    border: 1px solid rgba(178,255,89,0.45);
-    background: rgba(13,71,255,0.92);
-    color: var(--accent);
-    font-size: 0.95rem;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    box-shadow: 0 0 16px rgba(178,255,89,0.16);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.3s ease;
-  }
-  .tap-hint.show { opacity: 1; }
 
   /* ================================================================
      SÍMBOLOS FLOTANTES DECORATIVOS — sutil, temático (no Nicolás)
@@ -109,7 +72,7 @@
   ================================================================ */
   .bio {
     position: relative; z-index: 1;
-    padding: calc(2.6rem + env(safe-area-inset-top, 0)) 1.4rem 1rem;
+    padding: calc(2.6rem + env(safe-area-inset-top, 0)) 1rem 1rem;
     overflow: hidden;
   }
   .bio-name {
@@ -164,7 +127,7 @@
   ================================================================ */
   .toc {
     position: relative; z-index: 1;
-    padding: 2rem 1.4rem 3rem;
+    padding: 2rem 1rem 3rem;
   }
   .toc-heading {
     font-size: 1.05rem;
@@ -203,7 +166,7 @@
   .sub-page.show { display: block; }
   .sub-page-header {
     position: sticky; top: 0; background: var(--bg); z-index: 10;
-    padding: calc(1rem + env(safe-area-inset-top, 0)) 1.2rem 0.7rem;
+    padding: calc(1rem + env(safe-area-inset-top, 0)) 1rem 0.7rem;
     border-bottom: 1px solid var(--accent-faint);
   }
   .sub-page-header-top { display: flex; align-items: center; gap: 1.1rem; margin-bottom: 0.7rem; }
@@ -223,7 +186,7 @@
   }
   .pill-nav a:active { background: var(--accent-faint); color: var(--accent); }
 
-  .sub-page-body { padding: 1.5rem 1.2rem 3.5rem; }
+  .sub-page-body { padding: 1.5rem 1rem 3.5rem; }
 
   /* Entrada de proyecto — título + texto + media temblando, todo en una columna */
   .entry {
@@ -294,55 +257,89 @@
   .audio-time { font-size: 0.78rem; opacity: 0.55; text-align: right; }
 
   /* ================================================================
-     CONTACT — caja terminal, sin info duplicada
+     CONTACT — versión mínima, sin caja nueva
   ================================================================ */
-  .contact-terminal {
-    border: 1px solid rgba(178,255,89,0.28);
-    padding: 1.2rem 1rem 1.1rem;
-    background: linear-gradient(135deg, rgba(0,0,0,0.16), rgba(178,255,89,0.06));
-    box-shadow: inset 0 0 0 1px rgba(178,255,89,0.08), 0 0 18px rgba(178,255,89,0.08);
+  .contact-links {
+    display: grid; gap: 0.75rem; margin-top: 1.1rem;
   }
-  .contact-terminal-header {
-    font-size: 0.78rem; opacity: 0.5; letter-spacing: 0.1em; text-transform: uppercase;
-    margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid rgba(178,255,89,0.18);
+  .contact-link {
+    display: block; text-decoration: none; color: var(--accent);
+    padding: 0.7rem 0.8rem; border: 1px solid rgba(178,255,89,0.2);
+    background: rgba(178,255,89,0.04); line-height: 1.45;
+    word-break: break-word;
   }
-  .contact-terminal-link {
-    display: block; text-decoration: none; color: var(--accent); font-size: clamp(1rem,4.2vw,1.2rem);
-    line-height: 1.5; margin-bottom: 0.8rem; padding: 0.7rem 0.8rem; border: 1px solid rgba(178,255,89,0.18);
-    background: rgba(178,255,89,0.05); word-break: break-word; transition: transform 0.15s ease, background 0.15s ease;
+  .contact-link:active { background: rgba(178,255,89,0.11); }
+  .contact-link small {
+    display: block; font-size: 0.74rem; opacity: 0.45; letter-spacing: 0.1em;
+    text-transform: uppercase; margin-bottom: 0.15rem;
   }
-  .contact-terminal-link:last-of-type { margin-bottom: 0; }
-  .contact-terminal-link:active { color: #e8ff99; background: rgba(178,255,89,0.12); transform: translateY(-1px); }
-  .contact-terminal-label { display: block; font-size: 0.74rem; opacity: 0.45; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.15rem; }
-  .contact-terminal-prompt { font-size: 0.96rem; opacity: 0.6; margin-top: 1rem; }
-  .blink-cursor { display: inline-block; width: 0.6ch; height: 0.85em; background: var(--accent); animation: blink 0.8s steps(2) infinite; vertical-align: middle; margin-left: 0.05em; }
-  @keyframes blink { 0%,50% { opacity: 1; } 50.1%,100% { opacity: 0; } }
 
   .random-mode-link {
-    display: flex; align-items: center; justify-content: space-between; gap: 0.8rem;
-    text-decoration: none; color: var(--accent); padding: 0.35rem 0.2rem; margin-top: 1.4rem;
-    text-shadow: 0 0 6px rgba(178,255,89,0.35);
+    display: block; overflow: hidden; padding: 0.35rem 0.2rem; margin-top: 1.4rem;
+    text-decoration: none; color: var(--accent); text-shadow: 0 0 6px rgba(178,255,89,0.35);
   }
   .random-mode-link:active { opacity: 0.75; }
-  .random-mode-link .toc-label { font-size: clamp(1.2rem, 6vw, 1.55rem); }
-  .random-mode-link .toc-arrow { font-size: 1.2rem; }
+  .random-mode-link .toc-label {
+    display: inline-flex; align-items: center; gap: 0;
+    font-size: clamp(1.2rem, 6vw, 1.55rem); white-space: nowrap;
+    will-change: transform; animation: random-marquee 3.2s linear infinite;
+  }
+  .random-mode-link .toc-label .marquee-copy {
+    white-space: nowrap; padding-right: 1.25rem;
+  }
+  .random-mode-link .toc-arrow { display: none; }
+  @keyframes random-marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
 
   .random-overlay {
-    position: fixed; inset: 0; pointer-events: none; z-index: 250; overflow: hidden;
+    position: fixed; inset: 0; pointer-events: none; z-index: 250; overflow: hidden; opacity: 0;
+    transition: opacity 0.25s ease;
   }
-  .random-nicolas {
-    position: absolute; color: var(--accent); font-family: "VT323", monospace; font-size: clamp(1rem, 4.2vw, 1.35rem);
-    pointer-events: none; user-select: none; text-shadow: 0 0 8px rgba(178,255,89,0.25);
-    will-change: transform;
-    opacity: 0.8;
+  .random-overlay.active { opacity: 1; pointer-events: auto; }
+  .random-back-btn {
+    position: fixed; left: 1rem; top: calc(1rem + env(safe-area-inset-top, 0));
+    z-index: 260; display: none; align-items: center; justify-content: center;
+    width: 2.6rem; height: 2.6rem; border: 1px solid rgba(178,255,89,0.3);
+    background: rgba(13,71,255,0.94); color: var(--accent); font-size: 1.2rem;
+    font-family: "VT323", monospace; text-decoration: none;
   }
-  .random-nicolas.active { animation: drift-random 1.2s ease-in-out infinite alternate; }
-  @keyframes drift-random { 0% { transform: translate(0,0) rotate(0deg); } 100% { transform: translate(8px,-10px) rotate(6deg); } }
-
+  .random-back-btn.show { display: flex; }
+  .random-hint {
+    position: fixed; left: 50%; bottom: 2.4rem; transform: translateX(-50%);
+    z-index: 260; display: none; padding: 0.65rem 0.9rem; border: 1px solid rgba(178,255,89,0.28);
+    background: rgba(13,71,255,0.94); color: var(--accent); font-size: 0.94rem;
+    letter-spacing: 0.07em; text-transform: uppercase; text-align: center;
+    box-shadow: 0 0 16px rgba(178,255,89,0.16);
+  }
+  .random-hint.show { display: block; }
+  .game-letter {
+    position: absolute; display: inline-block; pointer-events: none; user-select: none;
+    will-change: transform; text-shadow: 0 0 10px rgba(178,255,89,0.24);
+    font-family: "VT323", monospace; white-space: pre;
+  }
+  body.random-mode-active main,
+  body.random-mode-active footer,
+  body.random-mode-active .sub-page {
+    opacity: 0.04;
+    transition: opacity 0.8s ease;
+  }
+  body.random-mode-active .bio,
+  body.random-mode-active .toc,
+  body.random-mode-active .sub-page-header,
+  body.random-mode-active .sub-page-body {
+    opacity: 0.04;
+    transition: opacity 0.8s ease;
+  }
   footer {
     position: relative; z-index: 1;
-    text-align: center; padding: 1.5rem 1.4rem calc(2rem + env(safe-area-inset-bottom, 0));
+    text-align: center; padding: 1.5rem 0 calc(2rem + env(safe-area-inset-bottom, 0));
     color: var(--accent-dim); font-size: 0.85rem;
+  }
+  .random-mode-active footer {
+    padding-left: 1rem;
+    padding-right: 1rem;
   }
 </style>
 </head>
@@ -388,7 +385,12 @@
       <span class="toc-arrow">↳</span>
     </a>
     <a href="#" class="toc-item random-mode-link" data-random-mode="true">
-      <span class="toc-label">Random Mode</span>
+      <span class="toc-label" aria-label="Random Mode">
+        <span class="marquee-copy">Random Mode</span>
+        <span class="marquee-copy" aria-hidden="true">Random Mode</span>
+        <span class="marquee-copy" aria-hidden="true">Random Mode</span>
+        <span class="marquee-copy" aria-hidden="true">Random Mode</span>
+      </span>
       <span class="toc-arrow">↳</span>
     </a>
   </nav>
@@ -589,7 +591,10 @@
 </div>
 
 <!-- ===================== SUB-PAGE: CONTACT ===================== -->
-<div class="random-overlay" id="random-overlay" aria-hidden="true"></div>
+<div class="random-overlay" id="random-overlay" aria-hidden="true">
+  <button class="random-back-btn" type="button" aria-label="Back to home">←</button>
+  <div class="random-hint">Let's play, try to shake your device!</div>
+</div>
 
 <div id="page-contact" class="sub-page">
   <div class="sub-page-header">
@@ -603,17 +608,15 @@
       <h3>Let's build something together!</h3>
       <p>I'm available for projects in sound design and editing for film, electroacoustic composition, and instrument making. Feel free to reach out — I'd love to hear about what you're working on.</p>
 
-      <div class="contact-terminal">
-        <div class="contact-terminal-header">── contact ──────────────────</div>
-        <a href="mailto:contact@nicolasgomezsal.co" class="contact-terminal-link">
-          <span class="contact-terminal-label">✉ email</span>
+      <div class="contact-links">
+        <a href="mailto:contact@nicolasgomezsal.co" class="contact-link">
+          <small>✉ email</small>
           contact@nicolasgomezsal.co
         </a>
-        <a href="https://www.linkedin.com/in/nicolasgomezs/" target="_blank" rel="noopener noreferrer" class="contact-terminal-link">
-          <span class="contact-terminal-label">↗ linkedin</span>
+        <a href="https://www.linkedin.com/in/nicolasgomezs/" target="_blank" rel="noopener noreferrer" class="contact-link">
+          <small>↗ linkedin</small>
           /in/nicolasgomezs
         </a>
-        <div class="contact-terminal-prompt">&gt; available_<span class="blink-cursor"></span></div>
       </div>
     </div>
   </div>
@@ -641,137 +644,22 @@
 
 <script>
   /* ================================================================
-     1A. TACTILE FEEDBACK — pulso visual y sonido breve para móviles
-  ================================================================ */
-  (function () {
-    const touchTargets = '.toc-item, .back-btn, .pill-nav a, .audio-play-btn, .contact-terminal-link, .entry';
-    const isTouch = window.matchMedia('(hover: none), (pointer: coarse)').matches;
-    let audioCtx = null;
-    let masterGain = null;
-    let swipeStartX = null;
-    let swipeStartY = null;
-    let hintShown = false;
-
-    function showHintOnce() {
-      if (hintShown) return;
-      hintShown = true;
-      const hint = document.createElement('div');
-      hint.className = 'tap-hint';
-      hint.textContent = 'tap to explore • swipe right to back';
-      document.body.appendChild(hint);
-      requestAnimationFrame(() => hint.classList.add('show'));
-      setTimeout(() => {
-        hint.classList.remove('show');
-        setTimeout(() => hint.remove(), 320);
-      }, 2200);
-    }
-
-    function ensureAudio() {
-      if (audioCtx) return;
-      const AudioCtor = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtor) return;
-      audioCtx = new AudioCtor();
-      masterGain = audioCtx.createGain();
-      masterGain.gain.value = 0.0001;
-      masterGain.connect(audioCtx.destination);
-    }
-
-    function triggerTapSound() {
-      ensureAudio();
-      if (!audioCtx || !masterGain) return;
-      if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
-      const now = audioCtx.currentTime;
-      const osc = audioCtx.createOscillator();
-      const oscGain = audioCtx.createGain();
-      const filter = audioCtx.createBiquadFilter();
-      osc.type = Math.random() > 0.5 ? 'triangle' : 'sine';
-      osc.frequency.setValueAtTime(220 + Math.random() * 180, now);
-      osc.frequency.exponentialRampToValueAtTime(115 + Math.random() * 70, now + 0.16);
-      filter.type = 'bandpass';
-      filter.frequency.value = 750 + Math.random() * 600;
-      filter.Q.value = 1.1;
-      oscGain.gain.setValueAtTime(0.0001, now);
-      oscGain.gain.exponentialRampToValueAtTime(0.025, now + 0.01);
-      oscGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
-      osc.connect(filter);
-      filter.connect(oscGain);
-      oscGain.connect(masterGain);
-      osc.start(now);
-      osc.stop(now + 0.2);
-    }
-
-    function createRipple(x, y) {
-      const ripple = document.createElement('span');
-      ripple.className = 'touch-ripple';
-      ripple.style.left = x + 'px';
-      ripple.style.top = y + 'px';
-      document.body.appendChild(ripple);
-      setTimeout(() => ripple.remove(), 760);
-    }
-
-    function handleTouchFeedback(event) {
-      if (!isTouch) return;
-      const targetEl = event.target instanceof Element ? event.target : event.target.parentElement;
-      if (!targetEl) return;
-      const trigger = targetEl.closest(touchTargets);
-      if (!trigger) return;
-      showHintOnce();
-      trigger.classList.remove('tap-burst');
-      void trigger.offsetWidth;
-      trigger.classList.add('tap-burst');
-      setTimeout(() => trigger.classList.remove('tap-burst'), 320);
-      const rect = trigger.getBoundingClientRect();
-      const x = event.clientX ?? rect.left + rect.width / 2;
-      const y = event.clientY ?? rect.top + rect.height / 2;
-      createRipple(x, y);
-      triggerTapSound();
-    }
-
-    document.addEventListener('pointerdown', (event) => {
-      if (event.pointerType === 'mouse') return;
-      handleTouchFeedback(event);
-    }, { passive: true });
-
-    document.addEventListener('touchstart', (event) => {
-      if (event.touches.length !== 1) return;
-      const targetEl = event.target instanceof Element ? event.target : event.target.parentElement;
-      const trigger = targetEl ? targetEl.closest(touchTargets) : null;
-      if (!trigger) return;
-      swipeStartX = event.touches[0].clientX;
-      swipeStartY = event.touches[0].clientY;
-    }, { passive: true });
-
-    document.addEventListener('touchend', (event) => {
-      if (swipeStartX === null || swipeStartY === null) return;
-      const touch = event.changedTouches[0];
-      const dx = touch.clientX - swipeStartX;
-      const dy = touch.clientY - swipeStartY;
-      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 70 && dx > 0) {
-        hideSubPage();
-      }
-      swipeStartX = null;
-      swipeStartY = null;
-    }, { passive: true });
-  })();
-</script>
-
-<script>
-  /* ================================================================
      1. SUB-PAGES — abrir / cerrar con transición de fade
-     2. PILL NAV — saltar dentro de la sub-page
+     2. RANDOM MODE — letras flotantes, sonido y movimiento
      3. AUDIO PLAYER — HTML5 nativo, carga perezosa al tocar ▶
   ================================================================ */
 
-  /* 1. Sub-pages */
   let activeSubPage = null;
-
   let randomModeActive = false;
   let randomMotionActive = false;
   let randomAudioCtx = null;
   let randomGain = null;
   let randomFrame = null;
-  let randomLastX = 0;
-  let randomLastY = 0;
+  let randomLetters = [];
+  let randomMotion = { x: 0, y: 0 };
+  let randomPointer = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+  let randomToneCooldown = 0;
+  let randomHintTimer = null;
 
   function createFadeOverlay() {
     const overlay = document.createElement('div');
@@ -820,7 +708,6 @@
     });
   });
 
-  /* 2. Pill nav — scroll dentro de la sub-page activa */
   document.querySelectorAll('.pill-nav a').forEach(pill => {
     pill.addEventListener('click', (e) => {
       e.preventDefault();
@@ -844,7 +731,7 @@
     randomGain.connect(randomAudioCtx.destination);
   }
 
-  function playRandomTone(x, y) {
+  function playRandomTone(intensity = 1, x = 0, y = 0) {
     initRandomAudio();
     if (!randomAudioCtx || !randomGain) return;
     if (randomAudioCtx.state === 'suspended') randomAudioCtx.resume().catch(() => {});
@@ -853,79 +740,253 @@
     const osc2 = randomAudioCtx.createOscillator();
     const gain = randomAudioCtx.createGain();
     const filter = randomAudioCtx.createBiquadFilter();
-    const freq = 180 + (x / window.innerWidth) * 150;
-    const freq2 = 260 + (y / window.innerHeight) * 180;
+    const freq = 180 + (x / Math.max(1, window.innerWidth)) * 180;
+    const freq2 = 240 + (y / Math.max(1, window.innerHeight)) * 180;
     osc.type = 'triangle'; osc2.type = 'sine';
     osc.frequency.setValueAtTime(freq, now);
-    osc.frequency.exponentialRampToValueAtTime(freq * 0.8, now + 0.18);
+    osc.frequency.exponentialRampToValueAtTime(freq * 0.75, now + 0.18);
     osc2.frequency.setValueAtTime(freq2, now);
-    osc2.frequency.exponentialRampToValueAtTime(freq2 * 0.7, now + 0.16);
+    osc2.frequency.exponentialRampToValueAtTime(freq2 * 0.68, now + 0.16);
     filter.type = 'bandpass'; filter.frequency.value = 700 + Math.random() * 400; filter.Q.value = 1.2;
     gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(0.018, now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.01 + intensity * 0.008, now + 0.01);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
     osc.connect(filter); osc2.connect(filter); filter.connect(gain); gain.connect(randomGain);
     osc.start(now); osc2.start(now); osc.stop(now + 0.2); osc2.stop(now + 0.2);
   }
 
-  function spawnRandomNicolas(x, y) {
-    const overlay = document.getElementById('random-overlay');
-    if (!overlay) return;
-    const nicolas = document.createElement('div');
-    nicolas.className = 'random-nicolas';
-    nicolas.textContent = 'Nicolás';
-    nicolas.style.left = x + 'px';
-    nicolas.style.top = y + 'px';
-    overlay.appendChild(nicolas);
-    requestAnimationFrame(() => nicolas.classList.add('active'));
-    setTimeout(() => nicolas.remove(), 1600);
+  function showRandomHint() {
+    const hint = document.querySelector('.random-hint');
+    if (!hint) return;
+    hint.classList.add('show');
+    if (randomHintTimer) clearTimeout(randomHintTimer);
+    randomHintTimer = setTimeout(() => {
+      hint.classList.remove('show');
+      randomHintTimer = null;
+    }, 5000);
   }
 
-  function updateRandomMode(x, y) {
-    if (!randomModeActive) return;
-    const dx = x - randomLastX;
-    const dy = y - randomLastY;
-    if (Math.hypot(dx, dy) > 8) {
-      playRandomTone(x, y);
-      spawnRandomNicolas(x, y);
-      randomLastX = x; randomLastY = y;
+  function createLetterFragments() {
+    const overlay = document.getElementById('random-overlay');
+    if (!overlay) return [];
+    const letters = [];
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        const parent = node.parentElement;
+        if (!parent || parent.closest('#random-overlay') || parent.tagName === 'SCRIPT' || parent.tagName === 'STYLE') {
+          return NodeFilter.FILTER_REJECT;
+        }
+        const style = window.getComputedStyle(parent);
+        if (style.display === 'none' || style.visibility === 'hidden') return NodeFilter.FILTER_REJECT;
+        const text = node.textContent || '';
+        return /\S/.test(text) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+      }
+    });
+
+    let node;
+    while ((node = walker.nextNode())) {
+      const parent = node.parentElement;
+      if (!parent) continue;
+      const text = node.textContent || '';
+      const chars = Array.from(text);
+      let offset = 0;
+      const range = document.createRange();
+      chars.forEach((char) => {
+        if (/\s/.test(char)) {
+          offset += 1;
+          return;
+        }
+        range.setStart(node, offset);
+        range.setEnd(node, offset + 1);
+        const rect = range.getBoundingClientRect();
+        offset += 1;
+        if (!rect.width && !rect.height) return;
+        const el = document.createElement('span');
+        el.className = 'game-letter';
+        el.textContent = char;
+        el.style.left = rect.left + 'px';
+        el.style.top = rect.top + 'px';
+        el.style.fontSize = (rect.height * 0.86) + 'px';
+        el.style.opacity = '0.02';
+        overlay.appendChild(el);
+        letters.push({
+          el,
+          x: rect.left,
+          y: rect.top,
+          baseX: rect.left,
+          baseY: rect.top,
+          vx: 0,
+          vy: 0,
+          phase: Math.random() * Math.PI * 2,
+          angle: Math.random() * Math.PI * 2,
+          size: rect.height || 16,
+          startedAt: performance.now()
+        });
+      });
     }
+
+    return letters;
+  }
+
+  function updateRandomScene() {
+    if (!randomModeActive || !randomLetters.length) return;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const now = performance.now();
+    const time = now / 1000;
+
+    randomLetters.forEach((letter) => {
+      const elapsed = Math.max(0, now - letter.startedAt) / 1000;
+      const spreadProgress = Math.min(1, elapsed / 2.2);
+      const ease = spreadProgress * spreadProgress * (3 - 2 * spreadProgress);
+      const angle = time * 0.16 + letter.angle + letter.phase * 0.18;
+      const force = 0.00045 + ease * 0.0028;
+      const driftX = Math.cos(angle) * force;
+      const driftY = Math.sin(angle * 1.05) * force;
+      const motionX = (randomMotion.x * 0.0012 + ((randomPointer.x - width / 2) / width) * 0.0005) * (0.15 + ease * 0.85);
+      const motionY = (randomMotion.y * 0.0012 + ((randomPointer.y - height / 2) / height) * 0.0005) * (0.15 + ease * 0.85);
+
+      letter.vx += driftX + motionX;
+      letter.vy += driftY + motionY;
+      letter.vx *= 0.965;
+      letter.vy *= 0.965;
+      letter.x += letter.vx;
+      letter.y += letter.vy;
+      letter.x = Math.max(6, Math.min(width - 24, letter.x));
+      letter.y = Math.max(6, Math.min(height - 24, letter.y));
+      const reveal = Math.min(1, elapsed / 0.7);
+      const alpha = 0.04 + reveal * reveal * 0.96;
+      letter.el.style.opacity = alpha.toFixed(3);
+      letter.el.style.transform = `translate(${letter.x - letter.baseX}px, ${letter.y - letter.baseY}px)`;
+    });
+
+    randomFrame = requestAnimationFrame(updateRandomScene);
+  }
+
+  function applyLetterImpulse(x, y, intensity = 0.6) {
+    if (!randomLetters.length) return;
+    const now = performance.now();
+    if (now - randomToneCooldown < 70) return;
+    randomToneCooldown = now;
+    randomLetters.forEach((letter) => {
+      const dist = Math.hypot(letter.x - x, letter.y - y);
+      const pull = Math.max(0, 1 - dist / 180);
+      if (pull <= 0) return;
+      const force = pull * intensity * 0.9;
+      const angle = Math.atan2(letter.y - y, letter.x - x);
+      letter.vx += Math.cos(angle) * force;
+      letter.vy += Math.sin(angle) * force;
+    });
+    playRandomTone(intensity, x, y);
+  }
+
+  function clearRandomLetters() {
+    const overlay = document.getElementById('random-overlay');
+    if (!overlay) return;
+    overlay.querySelectorAll('.game-letter').forEach(el => el.remove());
+    randomLetters = [];
   }
 
   function toggleRandomMode() {
-    randomModeActive = !randomModeActive;
     const overlay = document.getElementById('random-overlay');
-    if (!overlay) return;
-    if (randomModeActive) {
-      overlay.innerHTML = '';
-      randomLastX = window.innerWidth / 2;
-      randomLastY = window.innerHeight / 2;
-      if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-        DeviceMotionEvent.requestPermission().then(() => { randomMotionActive = true; }).catch(() => { randomMotionActive = false; });
+    const backBtn = overlay?.querySelector('.random-back-btn');
+    const hint = overlay?.querySelector('.random-hint');
+    if (!overlay || !backBtn || !hint) return;
+
+    const entering = !randomModeActive;
+    randomModeActive = entering;
+
+    if (entering) {
+      clearRandomLetters();
+      randomMotion = { x: 0, y: 0 };
+      randomPointer = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+      if (randomFrame) cancelAnimationFrame(randomFrame);
+      document.body.classList.add('random-mode-active');
+      overlay.classList.add('active');
+      overlay.setAttribute('aria-hidden', 'false');
+      backBtn.classList.add('show');
+      showRandomHint();
+      const mainContent = document.querySelector('main');
+      const footerContent = document.querySelector('footer');
+      if (mainContent) mainContent.style.opacity = '0.04';
+      if (footerContent) footerContent.style.opacity = '0.04';
+      document.querySelectorAll('main > *').forEach((el) => {
+        if (el.classList.contains('sub-page')) return;
+        (el).style.opacity = '0.04';
+      });
+      randomLetters = createLetterFragments();
+      randomFrame = requestAnimationFrame(updateRandomScene);
+
+      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+        DeviceOrientationEvent.requestPermission().then((response) => {
+          randomMotionActive = response === 'granted';
+        }).catch(() => {
+          randomMotionActive = false;
+        });
       } else {
         randomMotionActive = true;
       }
-      document.querySelector('.random-mode-link .toc-label').textContent = 'Random Mode • On';
     } else {
+      const fadeOverlay = createFadeOverlay();
+      document.body.classList.remove('random-mode-active');
+      overlay.classList.remove('active');
+      overlay.setAttribute('aria-hidden', 'true');
+      backBtn.classList.remove('show');
+      const mainContent = document.querySelector('main');
+      const footerContent = document.querySelector('footer');
+      if (mainContent) mainContent.style.opacity = '1';
+      if (footerContent) footerContent.style.opacity = '1';
+      document.querySelectorAll('main > *').forEach((el) => {
+        if (el.classList.contains('sub-page')) return;
+        (el).style.opacity = '1';
+      });
+      hint.classList.remove('show');
+      if (randomHintTimer) clearTimeout(randomHintTimer);
+      randomHintTimer = null;
       randomMotionActive = false;
-      document.querySelector('.random-mode-link .toc-label').textContent = 'Random Mode';
-      overlay.innerHTML = '';
+      if (randomFrame) cancelAnimationFrame(randomFrame);
+      randomFrame = null;
+      clearRandomLetters();
+      setTimeout(() => {
+        fadeOverlay.style.opacity = '0';
+        setTimeout(() => fadeOverlay.remove(), 220);
+      }, 180);
     }
   }
 
   window.addEventListener('deviceorientation', (e) => {
     if (!randomModeActive || !randomMotionActive) return;
-    const x = (e.gamma || 0) + 45;
-    const y = (e.beta || 0) + 45;
-    const px = Math.max(20, Math.min(window.innerWidth - 20, (x / 90) * window.innerWidth));
-    const py = Math.max(20, Math.min(window.innerHeight - 20, (y / 90) * window.innerHeight));
-    updateRandomMode(px, py);
+    randomMotion.x = ((e.gamma || 0) / 35) * 0.7;
+    randomMotion.y = ((e.beta || 0) / 35) * 0.7;
+    if (Math.hypot(randomMotion.x, randomMotion.y) > 0.2) {
+      applyLetterImpulse(window.innerWidth / 2 + randomMotion.x * 60, window.innerHeight / 2 + randomMotion.y * 60, 0.4);
+    }
   }, { passive: true });
 
   window.addEventListener('pointermove', (e) => {
-    if (!randomModeActive || randomMotionActive) return;
-    updateRandomMode(e.clientX, e.clientY);
+    if (!randomModeActive) return;
+    randomPointer.x = e.clientX;
+    randomPointer.y = e.clientY;
+    if (e.pointerType !== 'mouse') {
+      applyLetterImpulse(e.clientX, e.clientY, 0.18);
+    }
   }, { passive: true });
+
+  document.addEventListener('pointerdown', (e) => {
+    if (!randomModeActive) return;
+    randomPointer.x = e.clientX;
+    randomPointer.y = e.clientY;
+    applyLetterImpulse(e.clientX, e.clientY, 0.8);
+  }, { passive: true });
+
+  document.querySelector('.random-back-btn')?.addEventListener('click', (event) => {
+    event.preventDefault();
+    if (randomModeActive) {
+      toggleRandomMode();
+    }
+  });
+
+  window.toggleRandomMode = toggleRandomMode;
 
   /* 3. Audio player */
   document.querySelectorAll('.audio-player').forEach(player => {
