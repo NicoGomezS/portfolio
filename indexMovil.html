@@ -54,20 +54,44 @@
   }
   .touch-ripple {
     position: fixed;
-    width: 90px;
-    height: 90px;
+    width: 110px;
+    height: 110px;
     border-radius: 999px;
     pointer-events: none;
     transform: translate(-50%, -50%) scale(0.5);
-    background: radial-gradient(circle, rgba(178,255,89,0.34) 0%, rgba(178,255,89,0.12) 38%, rgba(178,255,89,0) 72%);
+    background: radial-gradient(circle, rgba(178,255,89,0.42) 0%, rgba(178,255,89,0.18) 42%, rgba(178,255,89,0) 74%);
     mix-blend-mode: screen;
     z-index: 400;
-    animation: touch-ripple 0.75s ease-out forwards;
+    animation: touch-ripple 0.8s ease-out forwards;
   }
   @keyframes touch-ripple {
     from { opacity: 0.95; transform: translate(-50%, -50%) scale(0.4); }
-    to { opacity: 0; transform: translate(-50%, -50%) scale(2.4); }
+    to { opacity: 0; transform: translate(-50%, -50%) scale(2.6); }
   }
+  .tap-burst {
+    transform: translateY(-2px) scale(1.03);
+    box-shadow: 0 0 0 1px rgba(178,255,89,0.6), 0 0 18px rgba(178,255,89,0.28);
+    background: rgba(178,255,89,0.11);
+    border-color: rgba(178,255,89,0.8) !important;
+  }
+  .tap-hint {
+    position: fixed;
+    left: 50%; bottom: calc(1rem + env(safe-area-inset-bottom, 0));
+    transform: translateX(-50%);
+    z-index: 500;
+    padding: 0.55rem 0.85rem;
+    border: 1px solid rgba(178,255,89,0.45);
+    background: rgba(13,71,255,0.92);
+    color: var(--accent);
+    font-size: 0.95rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    box-shadow: 0 0 16px rgba(178,255,89,0.16);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+  }
+  .tap-hint.show { opacity: 1; }
 
   /* ================================================================
      SÍMBOLOS FLOTANTES DECORATIVOS — sutil, temático (no Nicolás)
@@ -591,6 +615,21 @@
     let masterGain = null;
     let swipeStartX = null;
     let swipeStartY = null;
+    let hintShown = false;
+
+    function showHintOnce() {
+      if (hintShown) return;
+      hintShown = true;
+      const hint = document.createElement('div');
+      hint.className = 'tap-hint';
+      hint.textContent = 'tap to explore • swipe right to back';
+      document.body.appendChild(hint);
+      requestAnimationFrame(() => hint.classList.add('show'));
+      setTimeout(() => {
+        hint.classList.remove('show');
+        setTimeout(() => hint.remove(), 320);
+      }, 2200);
+    }
 
     function ensureAudio() {
       if (audioCtx) return;
@@ -641,6 +680,11 @@
       if (!targetEl) return;
       const trigger = targetEl.closest(touchTargets);
       if (!trigger) return;
+      showHintOnce();
+      trigger.classList.remove('tap-burst');
+      void trigger.offsetWidth;
+      trigger.classList.add('tap-burst');
+      setTimeout(() => trigger.classList.remove('tap-burst'), 320);
       const rect = trigger.getBoundingClientRect();
       const x = event.clientX ?? rect.left + rect.width / 2;
       const y = event.clientY ?? rect.top + rect.height / 2;
