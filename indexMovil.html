@@ -670,6 +670,7 @@
   let activeSubPage = null;
   let randomModeActive = false;
   let randomMotionActive = false;
+  let motionPermissionRequested = false;
   let randomAudioCtx = null;
   let randomGain = null;
   let randomFrame = null;
@@ -824,6 +825,35 @@
     randomPointer.y = y;
     randomPointerActive = true;
     randomPointerStrength = Math.max(0.05, intensity);
+  }
+
+  function enableMotionInput() {
+    if (randomMotionActive) return;
+    randomMotionActive = true;
+
+    if (!motionPermissionRequested) {
+      motionPermissionRequested = true;
+
+      const orientationRequest = typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function'
+        ? DeviceOrientationEvent.requestPermission().then((response) => {
+            randomMotionActive = response === 'granted';
+          }).catch(() => {
+            randomMotionActive = false;
+          })
+        : Promise.resolve();
+
+      const motionRequest = typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function'
+        ? DeviceMotionEvent.requestPermission().then((response) => {
+            randomMotionActive = response === 'granted';
+          }).catch(() => {
+            randomMotionActive = false;
+          })
+        : Promise.resolve();
+
+      Promise.all([orientationRequest, motionRequest]).catch(() => {
+        randomMotionActive = false;
+      });
+    }
   }
 
   function createLetterFragments() {
@@ -1017,16 +1047,7 @@
       randomPointerActive = false;
       randomPointerStrength = 0;
       randomFrame = requestAnimationFrame(updateRandomScene);
-
-      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-        DeviceOrientationEvent.requestPermission().then((response) => {
-          randomMotionActive = response === 'granted';
-        }).catch(() => {
-          randomMotionActive = false;
-        });
-      } else {
-        randomMotionActive = true;
-      }
+      enableMotionInput();
     } else {
       const fadeOverlay = createFadeOverlay();
       syncRandomModeScrollLock(false);
@@ -1068,59 +1089,60 @@
     randomMotion.y = ((e.beta || 0) / 52) * 0.9;
   }, { passive: true });
 
-  window.addEventListener('pointermove', (e) => {
-    if (!randomModeActive) return;
-    if (e.pointerType === 'touch') {
-      e.preventDefault();
-    }
-    updateRandomPointer(e.clientX, e.clientY, e.pointerType === 'touch' ? 0.34 : 0.07);
-  }, { passive: false });
-
-  document.addEventListener('pointerdown', (e) => {
-    if (!randomModeActive) return;
-    if (e.pointerType === 'touch') {
-      e.preventDefault();
-    }
-    updateRandomPointer(e.clientX, e.clientY, e.pointerType === 'touch' ? 1.15 : 0.28);
-  }, { passive: false });
-
-  document.addEventListener('touchstart', (e) => {
-    if (!randomModeActive) return;
-    const touch = e.touches[0];
-    if (touch) {
-      e.preventDefault();
-      updateRandomPointer(touch.clientX, touch.clientY, 1.15);
-    }
-  }, { passive: false });
-
-  document.addEventListener('touchmove', (e) => {
-    if (!randomModeActive) return;
-    const touch = e.touches[0];
-    if (touch) {
-      e.preventDefault();
-      updateRandomPointer(touch.clientX, touch.clientY, 0.3);
-    }
-  }, { passive: false });
-
-  document.addEventListener('touchend', () => {
-    randomPointerActive = false;
-    randomPointerStrength = 0;
+  window.addEventListener('devicemotion', (e) => {
+    if (!randomModeActive || !randomMotionActive) return;
+    const ax = e.accelerationIncludingGravity?.x || e.acceleration?.x || 0;
+    const ay = e.accelerationIncludingGravity?.y || e.acceleration?.y || 0;
+    randomMotion.x = Math.max(-1.4, Math.min(1.4, ax / 10));
+    randomMotion.y = Math.max(-1.4, Math.min(1.4, ay / 10));
   }, { passive: true });
 
-  document.addEventListener('touchcancel', () => {
-    randomPointerActive = false;
-    randomPointerStrength = 0;
-  }, { passive: true });
+  const handlePointerMove = (e) => {
+    if (!randomModeActive) return;
+    if (e.pointerType === 'touch' || e.type === 'touchmove') {
+      e.preventDefault();
+    }
+    const clientX = e.touches?.[0]?.clientX ?? e.clientX;
+    const clientY = e.touches?.[0]?.clientY ?? e.clientY;
+    if (typeof clientX === 'number' && typeof clientY === 'number') {
+      updateRandomPointer(clientX, clientY, e.pointerType === 'touch' || e.type === 'touchmove' ? 0.34 : 0.07);
+    }
+  };
 
-  window.addEventListener('pointerup', () => {
-    randomPointerActive = false;
-    randomPointerStrength = 0;
-  }, { passive: true });
+  const handlePointerDown = (e) => {
+    if (!randomModeActive) return;
+    if (e.pointerType === 'touch' || e.type === 'touchstart') {
+      e.preventDefault();
+    }
+    const clientX = e.touches?.[0]?.clientX ?? e.clientX;
+    const clientY = e.touches?.[0]?.clientY ?? e.clientY;
+    if (typeof clientX === 'number' && typeof clientY === 'number') {
+      updateRandomPointer(clientX, clientY, e.pointerType === 'touch' || e.type === 'touchstart' ? 1.15 : 0.28);
+    }
+  };
 
-  window.addEventListener('pointercancel', () => {
+  window.addEventListener('pointermove', handlePointerMove, { passive: false });
+  window.addEventListener('pointerdown', handlePointerDown, { passive: false });
+  window.addEventListener('touchstart', handlePointerDown, { passive: false });
+  window.addEventListener('touchmove', handlePointerMove, { passive: false });
+  document.addEventListener('pointermove', handlePointerMove, { passive: false });
+  document.addEventListener('pointerdown', handlePointerDown, { passive: false });
+  document.addEventListener('touchstart', handlePointerDown, { passive: false });
+  document.addEventListener('touchmove', handlePointerMove, { passive: false });
+
+  const resetPointerState = () => {
     randomPointerActive = false;
     randomPointerStrength = 0;
-  }, { passive: true });
+  };
+
+  window.addEventListener('touchend', resetPointerState, { passive: true });
+  window.addEventListener('touchcancel', resetPointerState, { passive: true });
+  window.addEventListener('pointerup', resetPointerState, { passive: true });
+  window.addEventListener('pointercancel', resetPointerState, { passive: true });
+  document.addEventListener('touchend', resetPointerState, { passive: true });
+  document.addEventListener('touchcancel', resetPointerState, { passive: true });
+  document.addEventListener('pointerup', resetPointerState, { passive: true });
+  document.addEventListener('pointercancel', resetPointerState, { passive: true });
 
   const backButton = document.querySelector('.random-back-btn');
   const handleBackButtonAction = (event) => {
