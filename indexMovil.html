@@ -28,17 +28,17 @@
     position: relative;
     margin: 0;
   }
-  html.random-mode-active,
-  body.random-mode-active {
+  html.play-mode-active,
+  body.play-mode-active {
     overflow: hidden;
     overscroll-behavior: none;
   }
-  body.random-mode-active {
+  body.play-mode-active {
     touch-action: none;
   }
   a { color: inherit; }
 
-  .toc-item, .back-btn, .pill-nav a, .audio-play-btn, .contact-terminal-link, .entry {
+  .toc-item, .back-btn, .pill-nav a, .audio-play-btn, .entry {
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
   }
@@ -49,20 +49,6 @@
   .pill-nav a {
     scroll-snap-align: start;
   }
-  .touch-ripple {
-    display: none;
-  }
-
-  /* ================================================================
-     SÍMBOLOS FLOTANTES DECORATIVOS — sutil, temático (no Nicolás)
-  ================================================================ */
-  .drift-symbol {
-    position: absolute; color: var(--accent); opacity: 0.18;
-    font-size: 1.6rem; pointer-events: none; user-select: none; z-index: 0;
-  }
-  @keyframes drift-a { 0%,100% { transform: translate(0,0) rotate(0deg); } 50% { transform: translate(6px,-10px) rotate(12deg); } }
-  @keyframes drift-b { 0%,100% { transform: translate(0,0) rotate(0deg); } 50% { transform: translate(-8px,8px) rotate(-10deg); } }
-  @keyframes drift-c { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(4px,6px) scale(1.15); } }
 
   /* ================================================================
      HERO / BIO — entrada directa, sin landing
@@ -271,20 +257,20 @@
     text-transform: uppercase; margin-bottom: 0.15rem;
   }
 
-  .random-mode-link {
+  .play-mode-link {
     display: block; overflow: hidden; padding: 0.35rem 0.2rem; margin-top: 1.4rem;
     text-decoration: none; color: var(--accent); text-shadow: 0 0 6px rgba(178,255,89,0.35);
   }
-  .random-mode-link:active { opacity: 0.75; }
-  .random-mode-link .toc-label {
+  .play-mode-link:active { opacity: 0.75; }
+  .play-mode-link .toc-label {
     display: inline-flex; align-items: center; gap: 0;
     font-size: clamp(1.2rem, 6vw, 1.55rem); white-space: nowrap;
-    will-change: transform; animation: random-marquee 3.2s linear infinite;
+    will-change: transform; animation: play-marquee 3.2s linear infinite;
   }
-  .random-mode-link .toc-label .marquee-copy {
+  .play-mode-link .toc-label .marquee-copy {
     white-space: nowrap; padding-right: 1.25rem;
   }
-  .random-mode-link .toc-arrow {
+  .play-mode-link .toc-arrow {
     display: inline-flex; align-items: center; justify-content: center;
     width: 1.5rem; height: 1.5rem;
     border: 1px solid var(--accent);
@@ -292,22 +278,22 @@
     color: var(--bg);
     flex-shrink: 0;
   }
-  @keyframes random-marquee {
+  @keyframes play-marquee {
     from { transform: translateX(0); }
     to { transform: translateX(-50%); }
   }
 
-  .random-overlay {
+  .play-overlay {
     position: fixed; inset: 0; pointer-events: none; z-index: 250; overflow: hidden; opacity: 0;
     transition: none !important;
     background: transparent !important;
   }
-  .random-overlay.active {
+  .play-overlay.active {
     opacity: 1 !important;
     pointer-events: auto;
     background: transparent !important;
   }
-  .random-back-btn {
+  .play-back-btn {
     position: fixed; left: 1rem; top: calc(1rem + env(safe-area-inset-top, 0));
     z-index: 260; display: flex; align-items: center; justify-content: center;
     width: 2.6rem; height: 2.6rem; border: 1px solid var(--accent);
@@ -318,11 +304,11 @@
     will-change: opacity, transform, visibility;
     transition: opacity 240ms ease, transform 240ms ease, visibility 240ms ease;
   }
-  .random-back-btn.show {
+  .play-back-btn.show {
     opacity: 1; visibility: visible; pointer-events: auto;
     transform: translateY(0) scale(1);
   }
-  .random-hint {
+  .play-hint {
     position: fixed; left: 50%; bottom: 2.4rem; transform: translateX(-50%) translateY(8px);
     z-index: 260; display: block; padding: 0.65rem 0.9rem; border: 1px solid var(--accent);
     background: var(--accent); color: var(--bg); font-size: 0.94rem;
@@ -332,7 +318,7 @@
     will-change: opacity, transform, visibility;
     transition: opacity 280ms ease, transform 280ms ease, visibility 280ms ease;
   }
-  .random-hint.show {
+  .play-hint.show {
     opacity: 1; visibility: visible; pointer-events: auto;
     transform: translateX(-50%) translateY(0);
   }
@@ -341,16 +327,16 @@
     will-change: transform; text-shadow: 0 0 10px rgba(178,255,89,0.24);
     font-family: "VT323", monospace; white-space: pre;
   }
-  body.random-mode-active main,
-  body.random-mode-active footer,
-  body.random-mode-active .sub-page {
+  body.play-mode-active main,
+  body.play-mode-active footer,
+  body.play-mode-active .sub-page {
     opacity: 0.04;
     transition: none;
   }
-  body.random-mode-active .bio,
-  body.random-mode-active .toc,
-  body.random-mode-active .sub-page-header,
-  body.random-mode-active .sub-page-body {
+  body.play-mode-active .bio,
+  body.play-mode-active .toc,
+  body.play-mode-active .sub-page-header,
+  body.play-mode-active .sub-page-body {
     opacity: 0.04;
     transition: none;
   }
@@ -403,7 +389,7 @@
       <span class="toc-label">Contact</span>
       <span class="toc-arrow">↳</span>
     </a>
-    <a href="#" class="toc-item random-mode-link" data-random-mode="true">
+    <a href="#" class="toc-item play-mode-link" data-play-mode="true">
       <span class="toc-label" aria-label="Play Mode">
         <span class="marquee-copy">Play Mode</span>
         <span class="marquee-copy" aria-hidden="true">Play Mode</span>
@@ -609,9 +595,9 @@
 </div>
 
 <!-- ===================== SUB-PAGE: CONTACT ===================== -->
-<div class="random-overlay" id="random-overlay" aria-hidden="true">
-  <button class="random-back-btn" type="button" aria-label="Back to home">←</button>
-  <div class="random-hint">Let's play, try to shake your device!</div>
+<div class="play-overlay" id="play-overlay" aria-hidden="true">
+  <button class="play-back-btn" type="button" aria-label="Back to home">←</button>
+  <div class="play-hint">Touch the letters or shake your device!</div>
 </div>
 
 <div id="page-contact" class="sub-page">
@@ -663,25 +649,36 @@
 <script>
   /* ================================================================
      1. SUB-PAGES — abrir / cerrar con transición de fade
-     2. PLAY MODE — letras flotantes, sonido y movimiento
+     2. PLAY MODE — letras flotantes tipo agua: se repelen al tocarlas
+        y se desordenan al agitar el dispositivo (acelerómetro)
      3. AUDIO PLAYER — HTML5 nativo, carga perezosa al tocar ▶
   ================================================================ */
 
   let activeSubPage = null;
-  let randomModeActive = false;
-  let randomMotionActive = false;
-  let motionPermissionRequested = false;
-  let randomAudioCtx = null;
-  let randomGain = null;
-  let randomFrame = null;
-  let randomLetters = [];
-  let randomMotion = { x: 0, y: 0 };
-  let randomPointer = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-  let randomPointerActive = false;
-  let randomPointerStrength = 0;
-  let randomToneCooldown = 0;
-  let randomHintTimer = null;
-  let randomModeScrollPos = { x: 0, y: 0 };
+
+  /* ---- Play Mode: estado ---- */
+  let playModeActive = false;
+  let playFrame = null;
+  let playLetters = [];
+  let playModeScrollPos = { x: 0, y: 0 };
+  let playHintTimer = null;
+
+  /* ---- Play Mode: sensores ---- */
+  let sensorsPermissionRequested = false;
+  let orientationEnabled = true;   // controla la inclinación continua (efecto "bandeja con agua")
+  let motionEnabled = true;        // controla la detección de sacudidas (acelerómetro)
+  let playTilt = { x: 0, y: 0 };
+  let lastAcceleration = null;
+  let lastShakeAt = 0;
+  const SHAKE_DELTA_THRESHOLD = 13;  // sensibilidad del gesto de sacudida
+  const SHAKE_COOLDOWN_MS = 380;     // evita disparar varias sacudidas seguidas
+
+  /* ---- Play Mode: toque (agua) ---- */
+  const playPointers = new Map(); // pointerId -> { x, y, strength }
+
+  /* ---- Play Mode: audio ---- */
+  let playAudioCtx = null;
+  let playGain = null;
 
   function createFadeOverlay() {
     const overlay = document.createElement('div');
@@ -723,10 +720,10 @@
     });
   });
 
-  document.querySelectorAll('.random-mode-link').forEach(link => {
+  document.querySelectorAll('.play-mode-link').forEach(link => {
     link.addEventListener('click', (e) => {
       e.preventDefault();
-      toggleRandomMode();
+      togglePlayMode();
     });
   });
 
@@ -743,25 +740,28 @@
     });
   });
 
-  function initRandomAudio() {
-    if (randomAudioCtx) return;
+  /* ================================================================
+     AUDIO — un breve "pop" tipo gota de agua al tocar o sacudir
+  ================================================================ */
+  function initPlayAudio() {
+    if (playAudioCtx) return;
     const AudioCtor = window.AudioContext || window.webkitAudioContext;
     if (!AudioCtor) return;
-    randomAudioCtx = new AudioCtor();
-    randomGain = randomAudioCtx.createGain();
-    randomGain.gain.value = 0.0001;
-    randomGain.connect(randomAudioCtx.destination);
+    playAudioCtx = new AudioCtor();
+    playGain = playAudioCtx.createGain();
+    playGain.gain.value = 0.0001;
+    playGain.connect(playAudioCtx.destination);
   }
 
-  function playRandomTone(intensity = 1, x = 0, y = 0) {
-    initRandomAudio();
-    if (!randomAudioCtx || !randomGain) return;
-    if (randomAudioCtx.state === 'suspended') randomAudioCtx.resume().catch(() => {});
-    const now = randomAudioCtx.currentTime;
-    const osc = randomAudioCtx.createOscillator();
-    const osc2 = randomAudioCtx.createOscillator();
-    const gain = randomAudioCtx.createGain();
-    const filter = randomAudioCtx.createBiquadFilter();
+  function playSplashTone(intensity = 1, x = 0, y = 0) {
+    initPlayAudio();
+    if (!playAudioCtx || !playGain) return;
+    if (playAudioCtx.state === 'suspended') playAudioCtx.resume().catch(() => {});
+    const now = playAudioCtx.currentTime;
+    const osc = playAudioCtx.createOscillator();
+    const osc2 = playAudioCtx.createOscillator();
+    const gain = playAudioCtx.createGain();
+    const filter = playAudioCtx.createBiquadFilter();
     const freq = 180 + (x / Math.max(1, window.innerWidth)) * 180;
     const freq2 = 240 + (y / Math.max(1, window.innerHeight)) * 180;
     osc.type = 'triangle'; osc2.type = 'sine';
@@ -771,26 +771,26 @@
     osc2.frequency.exponentialRampToValueAtTime(freq2 * 0.68, now + 0.16);
     filter.type = 'bandpass'; filter.frequency.value = 700 + Math.random() * 400; filter.Q.value = 1.2;
     gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(0.01 + intensity * 0.008, now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.01 + Math.min(2.2, intensity) * 0.008, now + 0.01);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
-    osc.connect(filter); osc2.connect(filter); filter.connect(gain); gain.connect(randomGain);
+    osc.connect(filter); osc2.connect(filter); filter.connect(gain); gain.connect(playGain);
     osc.start(now); osc2.start(now); osc.stop(now + 0.2); osc2.stop(now + 0.2);
   }
 
-  function showRandomHint() {
-    const hint = document.querySelector('.random-hint');
+  function showPlayHint() {
+    const hint = document.querySelector('.play-hint');
     if (!hint) return;
     hint.classList.add('show');
-    if (randomHintTimer) clearTimeout(randomHintTimer);
-    randomHintTimer = setTimeout(() => {
+    if (playHintTimer) clearTimeout(playHintTimer);
+    playHintTimer = setTimeout(() => {
       hint.classList.remove('show');
-      randomHintTimer = null;
+      playHintTimer = null;
     }, 5000);
   }
 
-  function syncRandomModeScrollLock(active) {
-    document.documentElement.classList.toggle('random-mode-active', active);
-    document.body.classList.toggle('random-mode-active', active);
+  function syncPlayModeScrollLock(active) {
+    document.documentElement.classList.toggle('play-mode-active', active);
+    document.body.classList.toggle('play-mode-active', active);
     document.documentElement.style.overflow = active ? 'hidden' : '';
     document.body.style.overflow = active ? 'hidden' : '';
     document.body.style.touchAction = active ? 'none' : '';
@@ -798,66 +798,41 @@
     if (active) {
       const scrollX = window.scrollX || window.pageXOffset || 0;
       const scrollY = window.scrollY || window.pageYOffset || 0;
-      randomModeScrollPos = { x: scrollX, y: scrollY };
-      document.documentElement.style.setProperty('--scroll-y', `${scrollY}px`);
-      document.documentElement.style.setProperty('--scroll-x', `${scrollX}px`);
+      playModeScrollPos = { x: scrollX, y: scrollY };
       window.scrollTo({ top: scrollY, left: scrollX, behavior: 'auto' });
     } else {
-      const scrollX = parseFloat(document.documentElement.style.getPropertyValue('--scroll-x')) || randomModeScrollPos.x || 0;
-      const scrollY = parseFloat(document.documentElement.style.getPropertyValue('--scroll-y')) || randomModeScrollPos.y || 0;
+      const { x: scrollX, y: scrollY } = playModeScrollPos;
       window.scrollTo({ top: scrollY, left: scrollX, behavior: 'auto' });
       requestAnimationFrame(() => window.scrollTo({ top: scrollY, left: scrollX, behavior: 'auto' }));
       setTimeout(() => window.scrollTo({ top: scrollY, left: scrollX, behavior: 'auto' }), 80);
     }
   }
 
-  function preserveViewportPosition(pos = randomModeScrollPos) {
-    const restore = () => {
-      window.scrollTo({ top: pos.y, left: pos.x, behavior: 'auto' });
-    };
-    restore();
-    requestAnimationFrame(restore);
-    setTimeout(restore, 80);
-  }
+  /* ================================================================
+     PERMISOS DE SENSORES (iOS 13+ los pide explícitamente; en el
+     resto de plataformas ya están disponibles sin pedirlos)
+  ================================================================ */
+  function enablePlayMotionInput() {
+    if (sensorsPermissionRequested) return;
+    sensorsPermissionRequested = true;
 
-  function updateRandomPointer(x, y, intensity = 0.6) {
-    randomPointer.x = x;
-    randomPointer.y = y;
-    randomPointerActive = true;
-    randomPointerStrength = Math.max(0.05, intensity);
-  }
-
-  function enableMotionInput() {
-    if (randomMotionActive) return;
-    randomMotionActive = true;
-
-    if (!motionPermissionRequested) {
-      motionPermissionRequested = true;
-
-      const orientationRequest = typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function'
-        ? DeviceOrientationEvent.requestPermission().then((response) => {
-            randomMotionActive = response === 'granted';
-          }).catch(() => {
-            randomMotionActive = false;
-          })
-        : Promise.resolve();
-
-      const motionRequest = typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function'
-        ? DeviceMotionEvent.requestPermission().then((response) => {
-            randomMotionActive = response === 'granted';
-          }).catch(() => {
-            randomMotionActive = false;
-          })
-        : Promise.resolve();
-
-      Promise.all([orientationRequest, motionRequest]).catch(() => {
-        randomMotionActive = false;
-      });
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+      DeviceOrientationEvent.requestPermission()
+        .then((response) => { orientationEnabled = response === 'granted'; })
+        .catch(() => { orientationEnabled = false; });
+    }
+    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+      DeviceMotionEvent.requestPermission()
+        .then((response) => { motionEnabled = response === 'granted'; })
+        .catch(() => { motionEnabled = false; });
     }
   }
 
-  function createLetterFragments() {
-    const overlay = document.getElementById('random-overlay');
+  /* ================================================================
+     CAPTURA DE LETRAS — convierte el texto visible en piezas sueltas
+  ================================================================ */
+  function createPlayLetters() {
+    const overlay = document.getElementById('play-overlay');
     if (!overlay) return [];
     const letters = [];
     const viewportWidth = window.innerWidth;
@@ -865,7 +840,7 @@
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
       acceptNode(node) {
         const parent = node.parentElement;
-        if (!parent || parent.closest('#random-overlay') || parent.tagName === 'SCRIPT' || parent.tagName === 'STYLE') {
+        if (!parent || parent.closest('#play-overlay') || parent.tagName === 'SCRIPT' || parent.tagName === 'STYLE') {
           return NodeFilter.FILTER_REJECT;
         }
         const style = window.getComputedStyle(parent);
@@ -915,9 +890,7 @@
           vx: 0,
           vy: 0,
           phase: Math.random() * Math.PI * 2,
-          angle: Math.random() * Math.PI * 2,
-          size: rect.height || 16,
-          startedAt: performance.now()
+          size: rect.height || 16
         });
       });
     }
@@ -925,100 +898,125 @@
     return letters;
   }
 
-  function updateRandomScene() {
-    if (!randomModeActive || !randomLetters.length) return;
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    const now = performance.now();
-    const time = now / 1000;
-
-    randomLetters.forEach((letter) => {
-      const elapsed = Math.max(0, now - letter.startedAt) / 1000;
-      const spreadProgress = Math.min(1, elapsed / 2.2);
-      const ease = spreadProgress * spreadProgress * (3 - 2 * spreadProgress);
-      const restX = letter.baseX + Math.sin(time * 0.7 + letter.phase) * 1.4;
-      const restY = letter.baseY + Math.cos(time * 0.62 + letter.phase * 1.16) * 1.2;
-      const springX = (restX - letter.x) * 0.01;
-      const springY = (restY - letter.y) * 0.01;
-      const accelX = randomMotion.x * 0.0004;
-      const accelY = randomMotion.y * 0.0004;
-      let repelX = 0;
-      let repelY = 0;
-
-      if (randomPointerActive) {
-        const dx = letter.x - randomPointer.x;
-        const dy = letter.y - randomPointer.y;
-        const dist = Math.hypot(dx, dy) || 1;
-        const maxDist = 140;
-        const pull = Math.max(0, 1 - dist / maxDist);
-        if (pull > 0) {
-          const force = pull * randomPointerStrength * 0.0022;
-          repelX -= (dx / dist) * force;
-          repelY -= (dy / dist) * force;
-        }
-      }
-
-      letter.vx += springX + accelX + repelX;
-      letter.vy += springY + accelY + repelY;
-      letter.vx *= 0.9;
-      letter.vy *= 0.9;
-      letter.x += letter.vx;
-      letter.y += letter.vy;
-      letter.x = Math.max(6, Math.min(width - 24, letter.x));
-      letter.y = Math.max(6, Math.min(height - 24, letter.y));
-      const alpha = 0.92;
-      letter.el.style.opacity = alpha.toFixed(2);
-      letter.el.style.transform = `translate(${letter.x - letter.baseX}px, ${letter.y - letter.baseY}px)`;
-    });
-
-    randomFrame = requestAnimationFrame(updateRandomScene);
+  function clearPlayLetters() {
+    const overlay = document.getElementById('play-overlay');
+    if (!overlay) return;
+    overlay.querySelectorAll('.game-letter').forEach(el => el.remove());
+    playLetters = [];
   }
 
-  function applyLetterImpulse(x, y, intensity = 0.6) {
-    if (!randomLetters.length) return;
-    const now = performance.now();
-    if (now - randomToneCooldown < 70) return;
-    randomToneCooldown = now;
-    randomLetters.forEach((letter) => {
-      const dist = Math.hypot(letter.x - x, letter.y - y);
-      const pull = Math.max(0, 1 - dist / 180);
+  /* ================================================================
+     FÍSICA — cada letra se mueve como una gota de agua: el toque la
+     empuja/arremolina y una sacudida le da un impulso aleatorio; solo
+     la fricción los frena, nunca hay un resorte que las devuelva a su
+     posición inicial (el agua se rompe, no rebota) ni gravedad que las
+     haga "caer al piso"
+  ================================================================ */
+  function updatePlayScene() {
+    if (!playModeActive || !playLetters.length) {
+      playFrame = null;
+      return;
+    }
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const time = performance.now() / 1000;
+
+    playLetters.forEach((letter) => {
+      const tiltX = playTilt.x * 0.0004;
+      const tiltY = playTilt.y * 0.0004;
+      let pushX = 0;
+      let pushY = 0;
+
+      playPointers.forEach((pointer) => {
+        const dx = letter.x - pointer.x;
+        const dy = letter.y - pointer.y;
+        const dist = Math.hypot(dx, dy) || 1;
+        const maxDist = 160;
+        const pull = Math.max(0, 1 - dist / maxDist);
+        if (pull <= 0) return;
+        // empuje radial: la letra se aparta del dedo, como agua que se rompe
+        const radial = pull * pointer.strength * 0.0055;
+        pushX += (dx / dist) * radial;
+        pushY += (dy / dist) * radial;
+        // leve empuje tangencial: da la sensación de remolino al arrastrar
+        const swirl = pull * pointer.strength * 0.002;
+        pushX += (-dy / dist) * swirl;
+        pushY += (dx / dist) * swirl;
+      });
+
+      letter.vx += tiltX + pushX;
+      letter.vy += tiltY + pushY;
+      // fricción: frena el movimiento, pero no atrae a ningún punto fijo
+      letter.vx *= 0.92;
+      letter.vy *= 0.92;
+      letter.x += letter.vx;
+      letter.y += letter.vy;
+      letter.x = Math.max(4, Math.min(width - letter.size, letter.x));
+      letter.y = Math.max(4, Math.min(height - letter.size, letter.y));
+
+      // vaivén decorativo: no mueve la posición real, solo la hace "respirar"
+      // levemente donde sea que haya quedado, sin tirar de vuelta a ningún lado
+      const swayX = Math.sin(time * 0.7 + letter.phase) * 0.6;
+      const swayY = Math.cos(time * 0.62 + letter.phase * 1.16) * 0.5;
+
+      letter.el.style.transform = `translate(${letter.x - letter.baseX + swayX}px, ${letter.y - letter.baseY + swayY}px)`;
+    });
+
+    playFrame = requestAnimationFrame(updatePlayScene);
+  }
+
+  /* Empujón puntual al tocar — como agua que se rompe en el punto de contacto */
+  function splashAt(x, y, intensity = 1) {
+    if (!playLetters.length) return;
+    const radius = 210;
+    playLetters.forEach((letter) => {
+      const dx = letter.x - x;
+      const dy = letter.y - y;
+      const dist = Math.hypot(dx, dy) || 1;
+      const pull = Math.max(0, 1 - dist / radius);
       if (pull <= 0) return;
-      const force = pull * intensity * 0.9;
-      const angle = Math.atan2(letter.y - y, letter.x - x);
+      const force = pull * intensity * 4.2;
+      letter.vx += (dx / dist) * force;
+      letter.vy += (dy / dist) * force;
+    });
+    playSplashTone(intensity, x, y);
+  }
+
+  /* Sacudida — desordena todas las letras sin que "caigan": son
+     impulsos que solo la fricción disipa, nunca un resorte de retorno */
+  function scrambleLetters(intensity = 1) {
+    if (!playModeActive || !playLetters.length) return;
+    const clamped = Math.min(2.2, Math.max(0.4, intensity));
+    playLetters.forEach((letter) => {
+      const angle = Math.random() * Math.PI * 2;
+      const force = (5 + Math.random() * 9) * clamped;
       letter.vx += Math.cos(angle) * force;
       letter.vy += Math.sin(angle) * force;
     });
-    playRandomTone(intensity, x, y);
+    playSplashTone(clamped, window.innerWidth / 2, window.innerHeight / 2);
   }
 
-  function clearRandomLetters() {
-    const overlay = document.getElementById('random-overlay');
-    if (!overlay) return;
-    overlay.querySelectorAll('.game-letter').forEach(el => el.remove());
-    randomLetters = [];
-  }
-
-  function toggleRandomMode() {
-    const overlay = document.getElementById('random-overlay');
-    const backBtn = overlay?.querySelector('.random-back-btn');
-    const hint = overlay?.querySelector('.random-hint');
+  function togglePlayMode() {
+    const overlay = document.getElementById('play-overlay');
+    const backBtn = overlay?.querySelector('.play-back-btn');
+    const hint = overlay?.querySelector('.play-hint');
     if (!overlay || !backBtn || !hint) return;
 
-    const entering = !randomModeActive;
-    randomModeActive = entering;
+    const entering = !playModeActive;
+    playModeActive = entering;
 
     if (entering) {
-      clearRandomLetters();
-      randomMotion = { x: 0, y: 0 };
-      randomPointer = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-      randomModeScrollPos = {
+      clearPlayLetters();
+      playPointers.clear();
+      playTilt = { x: 0, y: 0 };
+      playModeScrollPos = {
         x: window.scrollX || window.pageXOffset || 0,
         y: window.scrollY || window.pageYOffset || 0
       };
-      if (randomFrame) cancelAnimationFrame(randomFrame);
-      syncRandomModeScrollLock(true);
+      if (playFrame) cancelAnimationFrame(playFrame);
+      syncPlayModeScrollLock(true);
       const restoreScroll = () => {
-        window.scrollTo({ top: randomModeScrollPos.y, left: randomModeScrollPos.x, behavior: 'auto' });
+        window.scrollTo({ top: playModeScrollPos.y, left: playModeScrollPos.x, behavior: 'auto' });
       };
       restoreScroll();
       requestAnimationFrame(restoreScroll);
@@ -1030,7 +1028,7 @@
       overlay.style.transition = 'none';
       requestAnimationFrame(() => {
         backBtn.classList.add('show');
-        showRandomHint();
+        showPlayHint();
       });
       backBtn.style.background = 'var(--accent)';
       backBtn.style.color = 'var(--bg)';
@@ -1043,14 +1041,12 @@
         if (el.classList.contains('sub-page')) return;
         (el).style.opacity = '0.04';
       });
-      randomLetters = createLetterFragments();
-      randomPointerActive = false;
-      randomPointerStrength = 0;
-      randomFrame = requestAnimationFrame(updateRandomScene);
-      enableMotionInput();
+      playLetters = createPlayLetters();
+      playFrame = requestAnimationFrame(updatePlayScene);
+      enablePlayMotionInput();
     } else {
       const fadeOverlay = createFadeOverlay();
-      syncRandomModeScrollLock(false);
+      syncPlayModeScrollLock(false);
       overlay.classList.remove('active');
       overlay.setAttribute('aria-hidden', 'true');
       overlay.style.opacity = '0';
@@ -1065,14 +1061,12 @@
         (el).style.opacity = '1';
       });
       hint.classList.remove('show');
-      if (randomHintTimer) clearTimeout(randomHintTimer);
-      randomHintTimer = null;
-      randomMotionActive = false;
-      randomPointerActive = false;
-      randomPointerStrength = 0;
-      if (randomFrame) cancelAnimationFrame(randomFrame);
-      randomFrame = null;
-      clearRandomLetters();
+      if (playHintTimer) clearTimeout(playHintTimer);
+      playHintTimer = null;
+      playPointers.clear();
+      if (playFrame) cancelAnimationFrame(playFrame);
+      playFrame = null;
+      clearPlayLetters();
       requestAnimationFrame(() => {
         fadeOverlay.style.opacity = '1';
       });
@@ -1083,78 +1077,79 @@
     }
   }
 
+  /* ================================================================
+     SENSORES — inclinar = agua se ladea suavemente; sacudir = se
+     desordena todo (con enfriamiento para no disparar sin parar)
+  ================================================================ */
   window.addEventListener('deviceorientation', (e) => {
-    if (!randomModeActive || !randomMotionActive) return;
-    randomMotion.x = ((e.gamma || 0) / 52) * 0.9;
-    randomMotion.y = ((e.beta || 0) / 52) * 0.9;
+    if (!playModeActive || !orientationEnabled) return;
+    playTilt.x = ((e.gamma || 0) / 52) * 0.9;
+    playTilt.y = ((e.beta || 0) / 52) * 0.9;
   }, { passive: true });
 
   window.addEventListener('devicemotion', (e) => {
-    if (!randomModeActive || !randomMotionActive) return;
-    const ax = e.accelerationIncludingGravity?.x || e.acceleration?.x || 0;
-    const ay = e.accelerationIncludingGravity?.y || e.acceleration?.y || 0;
-    randomMotion.x = Math.max(-1.4, Math.min(1.4, ax / 10));
-    randomMotion.y = Math.max(-1.4, Math.min(1.4, ay / 10));
+    if (!playModeActive || !motionEnabled) return;
+    const acc = (e.acceleration && e.acceleration.x !== null) ? e.acceleration : e.accelerationIncludingGravity;
+    if (!acc) return;
+    const ax = acc.x || 0, ay = acc.y || 0, az = acc.z || 0;
+    if (lastAcceleration) {
+      const delta = Math.abs(ax - lastAcceleration.x) + Math.abs(ay - lastAcceleration.y) + Math.abs(az - lastAcceleration.z);
+      const now = performance.now();
+      if (delta > SHAKE_DELTA_THRESHOLD && now - lastShakeAt > SHAKE_COOLDOWN_MS) {
+        lastShakeAt = now;
+        scrambleLetters(delta / SHAKE_DELTA_THRESHOLD);
+      }
+    }
+    lastAcceleration = { x: ax, y: ay, z: az };
   }, { passive: true });
 
-  const handlePointerMove = (e) => {
-    if (!randomModeActive) return;
-    if (e.pointerType === 'touch' || e.type === 'touchmove') {
-      e.preventDefault();
-    }
-    const clientX = e.touches?.[0]?.clientX ?? e.clientX;
-    const clientY = e.touches?.[0]?.clientY ?? e.clientY;
-    if (typeof clientX === 'number' && typeof clientY === 'number') {
-      updateRandomPointer(clientX, clientY, e.pointerType === 'touch' || e.type === 'touchmove' ? 0.34 : 0.07);
-    }
-  };
-
+  /* ================================================================
+     TOQUE — Pointer Events cubre mouse y táctil con una sola API;
+     admite varios dedos a la vez (cada uno empuja el agua por su lado)
+  ================================================================ */
   const handlePointerDown = (e) => {
-    if (!randomModeActive) return;
-    if (e.pointerType === 'touch' || e.type === 'touchstart') {
-      e.preventDefault();
-    }
-    const clientX = e.touches?.[0]?.clientX ?? e.clientX;
-    const clientY = e.touches?.[0]?.clientY ?? e.clientY;
-    if (typeof clientX === 'number' && typeof clientY === 'number') {
-      updateRandomPointer(clientX, clientY, e.pointerType === 'touch' || e.type === 'touchstart' ? 1.15 : 0.28);
-    }
+    if (!playModeActive) return;
+    if (e.pointerType === 'touch') e.preventDefault();
+    const strength = e.pointerType === 'touch' ? 1 : 0.5;
+    playPointers.set(e.pointerId, { x: e.clientX, y: e.clientY, strength });
+    splashAt(e.clientX, e.clientY, e.pointerType === 'touch' ? 1.1 : 0.65);
   };
 
-  window.addEventListener('pointermove', handlePointerMove, { passive: false });
+  const handlePointerMove = (e) => {
+    if (!playModeActive) return;
+    const pointer = playPointers.get(e.pointerId);
+    if (!pointer) return;
+    if (e.pointerType === 'touch') e.preventDefault();
+    pointer.x = e.clientX;
+    pointer.y = e.clientY;
+  };
+
+  const handlePointerUp = (e) => {
+    playPointers.delete(e.pointerId);
+  };
+
   window.addEventListener('pointerdown', handlePointerDown, { passive: false });
-  window.addEventListener('touchstart', handlePointerDown, { passive: false });
-  window.addEventListener('touchmove', handlePointerMove, { passive: false });
-  document.addEventListener('pointermove', handlePointerMove, { passive: false });
-  document.addEventListener('pointerdown', handlePointerDown, { passive: false });
-  document.addEventListener('touchstart', handlePointerDown, { passive: false });
-  document.addEventListener('touchmove', handlePointerMove, { passive: false });
+  window.addEventListener('pointermove', handlePointerMove, { passive: false });
+  window.addEventListener('pointerup', handlePointerUp, { passive: true });
+  window.addEventListener('pointercancel', handlePointerUp, { passive: true });
 
-  const resetPointerState = () => {
-    randomPointerActive = false;
-    randomPointerStrength = 0;
-  };
-
-  window.addEventListener('touchend', resetPointerState, { passive: true });
-  window.addEventListener('touchcancel', resetPointerState, { passive: true });
-  window.addEventListener('pointerup', resetPointerState, { passive: true });
-  window.addEventListener('pointercancel', resetPointerState, { passive: true });
-  document.addEventListener('touchend', resetPointerState, { passive: true });
-  document.addEventListener('touchcancel', resetPointerState, { passive: true });
-  document.addEventListener('pointerup', resetPointerState, { passive: true });
-  document.addEventListener('pointercancel', resetPointerState, { passive: true });
-
-  const backButton = document.querySelector('.random-back-btn');
-  const handleBackButtonAction = (event) => {
-    if (!randomModeActive) return;
+  document.querySelector('.play-back-btn')?.addEventListener('click', (event) => {
+    if (!playModeActive) return;
     event.preventDefault();
     event.stopPropagation();
-    toggleRandomMode();
-  };
-  backButton?.addEventListener('pointerup', handleBackButtonAction, { passive: false });
-  backButton?.addEventListener('touchend', handleBackButtonAction, { passive: false });
+    togglePlayMode();
+  });
 
-  window.toggleRandomMode = toggleRandomMode;
+  /* Pausa la animación si la pestaña queda en segundo plano (batería) */
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      if (playFrame) { cancelAnimationFrame(playFrame); playFrame = null; }
+    } else if (playModeActive && !playFrame) {
+      playFrame = requestAnimationFrame(updatePlayScene);
+    }
+  });
+
+  window.togglePlayMode = togglePlayMode;
 
   /* 3. Audio player */
   document.querySelectorAll('.audio-player').forEach(player => {
