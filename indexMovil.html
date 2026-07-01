@@ -313,7 +313,7 @@
     width: 2.6rem; height: 2.6rem; border: 1px solid var(--accent);
     background: var(--accent) !important; color: var(--bg) !important; font-size: 1.2rem;
     font-family: "VT323", monospace; text-decoration: none;
-    opacity: 0; visibility: hidden; pointer-events: none;
+    opacity: 0; visibility: hidden; pointer-events: auto; touch-action: manipulation;
     transform: translateY(-6px) scale(0.97);
     will-change: opacity, transform, visibility;
     transition: opacity 240ms ease, transform 240ms ease, visibility 240ms ease;
@@ -906,18 +906,21 @@
       const spreadProgress = Math.min(1, elapsed / 2.2);
       const ease = spreadProgress * spreadProgress * (3 - 2 * spreadProgress);
       const angle = time * 0.16 + letter.angle + letter.phase * 0.18;
-      const force = 0.00045 + ease * 0.0028;
-      const driftX = Math.cos(angle) * force;
-      const driftY = Math.sin(angle * 1.05) * force;
-      const motionX = (randomMotion.x * 0.0012 + ((randomPointer.x - width / 2) / width) * 0.0005) * (0.15 + ease * 0.85);
-      const motionY = (randomMotion.y * 0.0012 + ((randomPointer.y - height / 2) / height) * 0.0005) * (0.15 + ease * 0.85);
+      const fluidX = Math.sin(time * 0.9 + letter.phase) * (0.0017 + ease * 0.0022);
+      const fluidY = Math.cos(time * 0.78 + letter.phase * 1.16) * (0.0013 + ease * 0.002);
+      const pointerDx = ((randomPointer.x - width / 2) / Math.max(1, width)) * (0.0028 + ease * 0.005);
+      const pointerDy = ((randomPointer.y - height / 2) / Math.max(1, height)) * (0.0028 + ease * 0.005);
+      const accelX = randomMotion.x * 0.0038;
+      const accelY = randomMotion.y * 0.0038;
+      const motionX = (pointerDx + accelX) * (0.55 + ease * 1.15);
+      const motionY = (pointerDy + accelY) * (0.55 + ease * 1.15);
 
-      letter.vx += driftX + motionX;
-      letter.vy += driftY + motionY;
-      letter.vx *= 0.965;
-      letter.vy *= 0.965;
-      letter.x += letter.vx;
-      letter.y += letter.vy;
+      letter.vx += fluidX + motionX;
+      letter.vy += fluidY + motionY;
+      letter.vx *= 0.94;
+      letter.vy *= 0.94;
+      letter.x += letter.vx * 1.2;
+      letter.y += letter.vy * 1.2;
       letter.x = Math.max(6, Math.min(width - 24, letter.x));
       letter.y = Math.max(6, Math.min(height - 24, letter.y));
       const alpha = 0.92;
@@ -937,7 +940,7 @@
       const dist = Math.hypot(letter.x - x, letter.y - y);
       const pull = Math.max(0, 1 - dist / 180);
       if (pull <= 0) return;
-      const force = pull * intensity * 0.9;
+      const force = pull * intensity * 1.25;
       const angle = Math.atan2(letter.y - y, letter.x - x);
       letter.vx += Math.cos(angle) * force;
       letter.vy += Math.sin(angle) * force;
@@ -1044,10 +1047,10 @@
 
   window.addEventListener('deviceorientation', (e) => {
     if (!randomModeActive || !randomMotionActive) return;
-    randomMotion.x = ((e.gamma || 0) / 35) * 0.7;
-    randomMotion.y = ((e.beta || 0) / 35) * 0.7;
-    if (Math.hypot(randomMotion.x, randomMotion.y) > 0.2) {
-      applyLetterImpulse(window.innerWidth / 2 + randomMotion.x * 60, window.innerHeight / 2 + randomMotion.y * 60, 0.4);
+    randomMotion.x = ((e.gamma || 0) / 18) * 1.8;
+    randomMotion.y = ((e.beta || 0) / 18) * 1.8;
+    if (Math.hypot(randomMotion.x, randomMotion.y) > 0.08) {
+      applyLetterImpulse(window.innerWidth / 2 + randomMotion.x * 90, window.innerHeight / 2 + randomMotion.y * 90, 0.8);
     }
   }, { passive: true });
 
@@ -1056,7 +1059,7 @@
     if (e.pointerType === 'touch') {
       e.preventDefault();
     }
-    updateRandomPointer(e.clientX, e.clientY, e.pointerType === 'touch' ? 0.18 : 0.02);
+    updateRandomPointer(e.clientX, e.clientY, e.pointerType === 'touch' ? 0.34 : 0.07);
   }, { passive: false });
 
   document.addEventListener('pointerdown', (e) => {
@@ -1064,7 +1067,7 @@
     if (e.pointerType === 'touch') {
       e.preventDefault();
     }
-    updateRandomPointer(e.clientX, e.clientY, e.pointerType === 'touch' ? 0.8 : 0.2);
+    updateRandomPointer(e.clientX, e.clientY, e.pointerType === 'touch' ? 1.15 : 0.28);
   }, { passive: false });
 
   document.addEventListener('touchstart', (e) => {
@@ -1072,7 +1075,7 @@
     const touch = e.touches[0];
     if (touch) {
       e.preventDefault();
-      updateRandomPointer(touch.clientX, touch.clientY, 0.8);
+      updateRandomPointer(touch.clientX, touch.clientY, 1.15);
     }
   }, { passive: false });
 
@@ -1081,16 +1084,19 @@
     const touch = e.touches[0];
     if (touch) {
       e.preventDefault();
-      updateRandomPointer(touch.clientX, touch.clientY, 0.18);
+      updateRandomPointer(touch.clientX, touch.clientY, 0.3);
     }
   }, { passive: false });
 
-  document.querySelector('.random-back-btn')?.addEventListener('click', (event) => {
+  const backButton = document.querySelector('.random-back-btn');
+  const handleBackButtonAction = (event) => {
+    if (!randomModeActive) return;
     event.preventDefault();
-    if (randomModeActive) {
-      toggleRandomMode();
-    }
-  });
+    event.stopPropagation();
+    toggleRandomMode();
+  };
+  backButton?.addEventListener('pointerup', handleBackButtonAction, { passive: false });
+  backButton?.addEventListener('touchend', handleBackButtonAction, { passive: false });
 
   window.toggleRandomMode = toggleRandomMode;
 
