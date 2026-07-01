@@ -26,18 +26,15 @@
   body {
     font-family: "VT323", monospace;
     position: relative;
+    margin: 0;
   }
-  /* textura de scanlines sutil — toque CRT/terminal, no decorativo genérico */
-  body::before {
-    content: "";
-    position: fixed; inset: 0; z-index: 0; pointer-events: none;
-    background: repeating-linear-gradient(
-      to bottom,
-      rgba(178,255,89,0.025) 0px,
-      rgba(178,255,89,0.025) 1px,
-      transparent 1px,
-      transparent 3px
-    );
+  html.random-mode-active,
+  body.random-mode-active {
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+  body.random-mode-active {
+    touch-action: none;
   }
   a { color: inherit; }
 
@@ -287,7 +284,14 @@
   .random-mode-link .toc-label .marquee-copy {
     white-space: nowrap; padding-right: 1.25rem;
   }
-  .random-mode-link .toc-arrow { display: none; }
+  .random-mode-link .toc-arrow {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 1.5rem; height: 1.5rem;
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: var(--bg);
+    flex-shrink: 0;
+  }
   @keyframes random-marquee {
     from { transform: translateX(0); }
     to { transform: translateX(-50%); }
@@ -295,25 +299,43 @@
 
   .random-overlay {
     position: fixed; inset: 0; pointer-events: none; z-index: 250; overflow: hidden; opacity: 0;
-    transition: opacity 0.25s ease;
+    transition: none !important;
+    background: transparent !important;
   }
-  .random-overlay.active { opacity: 1; pointer-events: auto; }
+  .random-overlay.active {
+    opacity: 1 !important;
+    pointer-events: auto;
+    background: transparent !important;
+  }
   .random-back-btn {
     position: fixed; left: 1rem; top: calc(1rem + env(safe-area-inset-top, 0));
-    z-index: 260; display: none; align-items: center; justify-content: center;
-    width: 2.6rem; height: 2.6rem; border: 1px solid rgba(178,255,89,0.3);
-    background: rgba(13,71,255,0.94); color: var(--accent); font-size: 1.2rem;
+    z-index: 260; display: flex; align-items: center; justify-content: center;
+    width: 2.6rem; height: 2.6rem; border: 1px solid var(--accent);
+    background: var(--accent) !important; color: var(--bg) !important; font-size: 1.2rem;
     font-family: "VT323", monospace; text-decoration: none;
+    opacity: 0; visibility: hidden; pointer-events: none;
+    transform: translateY(-6px) scale(0.97);
+    will-change: opacity, transform, visibility;
+    transition: opacity 240ms ease, transform 240ms ease, visibility 240ms ease;
   }
-  .random-back-btn.show { display: flex; }
+  .random-back-btn.show {
+    opacity: 1; visibility: visible; pointer-events: auto;
+    transform: translateY(0) scale(1);
+  }
   .random-hint {
-    position: fixed; left: 50%; bottom: 2.4rem; transform: translateX(-50%);
-    z-index: 260; display: none; padding: 0.65rem 0.9rem; border: 1px solid rgba(178,255,89,0.28);
-    background: rgba(13,71,255,0.94); color: var(--accent); font-size: 0.94rem;
+    position: fixed; left: 50%; bottom: 2.4rem; transform: translateX(-50%) translateY(8px);
+    z-index: 260; display: block; padding: 0.65rem 0.9rem; border: 1px solid var(--accent);
+    background: var(--accent); color: var(--bg); font-size: 0.94rem;
     letter-spacing: 0.07em; text-transform: uppercase; text-align: center;
     box-shadow: 0 0 16px rgba(178,255,89,0.16);
+    opacity: 0; visibility: hidden; pointer-events: none;
+    will-change: opacity, transform, visibility;
+    transition: opacity 280ms ease, transform 280ms ease, visibility 280ms ease;
   }
-  .random-hint.show { display: block; }
+  .random-hint.show {
+    opacity: 1; visibility: visible; pointer-events: auto;
+    transform: translateX(-50%) translateY(0);
+  }
   .game-letter {
     position: absolute; display: inline-block; pointer-events: none; user-select: none;
     will-change: transform; text-shadow: 0 0 10px rgba(178,255,89,0.24);
@@ -323,24 +345,21 @@
   body.random-mode-active footer,
   body.random-mode-active .sub-page {
     opacity: 0.04;
-    transition: opacity 0.8s ease;
+    transition: none;
   }
   body.random-mode-active .bio,
   body.random-mode-active .toc,
   body.random-mode-active .sub-page-header,
   body.random-mode-active .sub-page-body {
     opacity: 0.04;
-    transition: opacity 0.8s ease;
+    transition: none;
   }
   footer {
     position: relative; z-index: 1;
     text-align: center; padding: 1.5rem 0 calc(2rem + env(safe-area-inset-bottom, 0));
     color: var(--accent-dim); font-size: 0.85rem;
   }
-  .random-mode-active footer {
-    padding-left: 1rem;
-    padding-right: 1rem;
-  }
+
 </style>
 </head>
 <body>
@@ -385,13 +404,12 @@
       <span class="toc-arrow">↳</span>
     </a>
     <a href="#" class="toc-item random-mode-link" data-random-mode="true">
-      <span class="toc-label" aria-label="Random Mode">
-        <span class="marquee-copy">Random Mode</span>
-        <span class="marquee-copy" aria-hidden="true">Random Mode</span>
-        <span class="marquee-copy" aria-hidden="true">Random Mode</span>
-        <span class="marquee-copy" aria-hidden="true">Random Mode</span>
+      <span class="toc-label" aria-label="Play Mode">
+        <span class="marquee-copy">Play Mode</span>
+        <span class="marquee-copy" aria-hidden="true">Play Mode</span>
+        <span class="marquee-copy" aria-hidden="true">Play Mode</span>
+        <span class="marquee-copy" aria-hidden="true">Play Mode</span>
       </span>
-      <span class="toc-arrow">↳</span>
     </a>
   </nav>
 
@@ -645,7 +663,7 @@
 <script>
   /* ================================================================
      1. SUB-PAGES — abrir / cerrar con transición de fade
-     2. RANDOM MODE — letras flotantes, sonido y movimiento
+     2. PLAY MODE — letras flotantes, sonido y movimiento
      3. AUDIO PLAYER — HTML5 nativo, carga perezosa al tocar ▶
   ================================================================ */
 
@@ -660,6 +678,7 @@
   let randomPointer = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
   let randomToneCooldown = 0;
   let randomHintTimer = null;
+  let randomModeScrollPos = { x: 0, y: 0 };
 
   function createFadeOverlay() {
     const overlay = document.createElement('div');
@@ -766,10 +785,52 @@
     }, 5000);
   }
 
+  function syncRandomModeScrollLock(active) {
+    document.documentElement.classList.toggle('random-mode-active', active);
+    document.body.classList.toggle('random-mode-active', active);
+    document.documentElement.style.overflow = active ? 'hidden' : '';
+    document.body.style.overflow = active ? 'hidden' : '';
+    document.body.style.touchAction = active ? 'none' : '';
+
+    if (active) {
+      const scrollX = window.scrollX || window.pageXOffset || 0;
+      const scrollY = window.scrollY || window.pageYOffset || 0;
+      randomModeScrollPos = { x: scrollX, y: scrollY };
+      document.documentElement.style.setProperty('--scroll-y', `${scrollY}px`);
+      document.documentElement.style.setProperty('--scroll-x', `${scrollX}px`);
+      window.scrollTo({ top: scrollY, left: scrollX, behavior: 'auto' });
+    } else {
+      const scrollX = parseFloat(document.documentElement.style.getPropertyValue('--scroll-x')) || randomModeScrollPos.x || 0;
+      const scrollY = parseFloat(document.documentElement.style.getPropertyValue('--scroll-y')) || randomModeScrollPos.y || 0;
+      window.scrollTo({ top: scrollY, left: scrollX, behavior: 'auto' });
+      requestAnimationFrame(() => window.scrollTo({ top: scrollY, left: scrollX, behavior: 'auto' }));
+      setTimeout(() => window.scrollTo({ top: scrollY, left: scrollX, behavior: 'auto' }), 80);
+    }
+  }
+
+  function preserveViewportPosition(pos = randomModeScrollPos) {
+    const restore = () => {
+      window.scrollTo({ top: pos.y, left: pos.x, behavior: 'auto' });
+    };
+    restore();
+    requestAnimationFrame(restore);
+    setTimeout(restore, 80);
+  }
+
+  function updateRandomPointer(x, y, intensity = 0.6) {
+    randomPointer.x = x;
+    randomPointer.y = y;
+    if (randomModeActive) {
+      applyLetterImpulse(x, y, intensity);
+    }
+  }
+
   function createLetterFragments() {
     const overlay = document.getElementById('random-overlay');
     if (!overlay) return [];
     const letters = [];
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
       acceptNode(node) {
         const parent = node.parentElement;
@@ -787,6 +848,9 @@
     while ((node = walker.nextNode())) {
       const parent = node.parentElement;
       if (!parent) continue;
+      const parentRect = parent.getBoundingClientRect();
+      const parentVisible = parentRect.bottom > 0 && parentRect.top < viewportHeight && parentRect.right > 0 && parentRect.left < viewportWidth;
+      if (!parentVisible) continue;
       const text = node.textContent || '';
       const chars = Array.from(text);
       let offset = 0;
@@ -801,13 +865,15 @@
         const rect = range.getBoundingClientRect();
         offset += 1;
         if (!rect.width && !rect.height) return;
+        const isVisible = rect.left >= 0 && rect.right <= viewportWidth && rect.top >= 0 && rect.bottom <= viewportHeight;
+        if (!isVisible) return;
         const el = document.createElement('span');
         el.className = 'game-letter';
         el.textContent = char;
         el.style.left = rect.left + 'px';
         el.style.top = rect.top + 'px';
         el.style.fontSize = (rect.height * 0.86) + 'px';
-        el.style.opacity = '0.02';
+        el.style.opacity = '0.92';
         overlay.appendChild(el);
         letters.push({
           el,
@@ -854,9 +920,8 @@
       letter.y += letter.vy;
       letter.x = Math.max(6, Math.min(width - 24, letter.x));
       letter.y = Math.max(6, Math.min(height - 24, letter.y));
-      const reveal = Math.min(1, elapsed / 0.7);
-      const alpha = 0.04 + reveal * reveal * 0.96;
-      letter.el.style.opacity = alpha.toFixed(3);
+      const alpha = 0.92;
+      letter.el.style.opacity = alpha.toFixed(2);
       letter.el.style.transform = `translate(${letter.x - letter.baseX}px, ${letter.y - letter.baseY}px)`;
     });
 
@@ -900,12 +965,30 @@
       clearRandomLetters();
       randomMotion = { x: 0, y: 0 };
       randomPointer = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+      randomModeScrollPos = {
+        x: window.scrollX || window.pageXOffset || 0,
+        y: window.scrollY || window.pageYOffset || 0
+      };
       if (randomFrame) cancelAnimationFrame(randomFrame);
-      document.body.classList.add('random-mode-active');
+      syncRandomModeScrollLock(true);
+      const restoreScroll = () => {
+        window.scrollTo({ top: randomModeScrollPos.y, left: randomModeScrollPos.x, behavior: 'auto' });
+      };
+      restoreScroll();
+      requestAnimationFrame(restoreScroll);
+      setTimeout(restoreScroll, 20);
+      setTimeout(restoreScroll, 60);
       overlay.classList.add('active');
       overlay.setAttribute('aria-hidden', 'false');
-      backBtn.classList.add('show');
-      showRandomHint();
+      overlay.style.opacity = '1';
+      overlay.style.transition = 'none';
+      requestAnimationFrame(() => {
+        backBtn.classList.add('show');
+        showRandomHint();
+      });
+      backBtn.style.background = 'var(--accent)';
+      backBtn.style.color = 'var(--bg)';
+      backBtn.style.borderColor = 'var(--accent)';
       const mainContent = document.querySelector('main');
       const footerContent = document.querySelector('footer');
       if (mainContent) mainContent.style.opacity = '0.04';
@@ -928,9 +1011,11 @@
       }
     } else {
       const fadeOverlay = createFadeOverlay();
-      document.body.classList.remove('random-mode-active');
+      syncRandomModeScrollLock(false);
       overlay.classList.remove('active');
       overlay.setAttribute('aria-hidden', 'true');
+      overlay.style.opacity = '0';
+      overlay.style.transition = 'none';
       backBtn.classList.remove('show');
       const mainContent = document.querySelector('main');
       const footerContent = document.querySelector('footer');
@@ -947,10 +1032,13 @@
       if (randomFrame) cancelAnimationFrame(randomFrame);
       randomFrame = null;
       clearRandomLetters();
+      requestAnimationFrame(() => {
+        fadeOverlay.style.opacity = '1';
+      });
       setTimeout(() => {
         fadeOverlay.style.opacity = '0';
         setTimeout(() => fadeOverlay.remove(), 220);
-      }, 180);
+      }, 120);
     }
   }
 
@@ -965,19 +1053,37 @@
 
   window.addEventListener('pointermove', (e) => {
     if (!randomModeActive) return;
-    randomPointer.x = e.clientX;
-    randomPointer.y = e.clientY;
-    if (e.pointerType !== 'mouse') {
-      applyLetterImpulse(e.clientX, e.clientY, 0.18);
+    if (e.pointerType === 'touch') {
+      e.preventDefault();
     }
-  }, { passive: true });
+    updateRandomPointer(e.clientX, e.clientY, e.pointerType === 'touch' ? 0.18 : 0.02);
+  }, { passive: false });
 
   document.addEventListener('pointerdown', (e) => {
     if (!randomModeActive) return;
-    randomPointer.x = e.clientX;
-    randomPointer.y = e.clientY;
-    applyLetterImpulse(e.clientX, e.clientY, 0.8);
-  }, { passive: true });
+    if (e.pointerType === 'touch') {
+      e.preventDefault();
+    }
+    updateRandomPointer(e.clientX, e.clientY, e.pointerType === 'touch' ? 0.8 : 0.2);
+  }, { passive: false });
+
+  document.addEventListener('touchstart', (e) => {
+    if (!randomModeActive) return;
+    const touch = e.touches[0];
+    if (touch) {
+      e.preventDefault();
+      updateRandomPointer(touch.clientX, touch.clientY, 0.8);
+    }
+  }, { passive: false });
+
+  document.addEventListener('touchmove', (e) => {
+    if (!randomModeActive) return;
+    const touch = e.touches[0];
+    if (touch) {
+      e.preventDefault();
+      updateRandomPointer(touch.clientX, touch.clientY, 0.18);
+    }
+  }, { passive: false });
 
   document.querySelector('.random-back-btn')?.addEventListener('click', (event) => {
     event.preventDefault();
