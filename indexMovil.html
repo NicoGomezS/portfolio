@@ -41,6 +41,34 @@
   }
   a { color: inherit; }
 
+  .toc-item, .back-btn, .pill-nav a, .audio-play-btn, .contact-terminal-link, .entry {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  .sub-page { touch-action: pan-y; }
+  .pill-nav {
+    scroll-snap-type: x proximity;
+  }
+  .pill-nav a {
+    scroll-snap-align: start;
+  }
+  .touch-ripple {
+    position: fixed;
+    width: 90px;
+    height: 90px;
+    border-radius: 999px;
+    pointer-events: none;
+    transform: translate(-50%, -50%) scale(0.5);
+    background: radial-gradient(circle, rgba(178,255,89,0.34) 0%, rgba(178,255,89,0.12) 38%, rgba(178,255,89,0) 72%);
+    mix-blend-mode: screen;
+    z-index: 400;
+    animation: touch-ripple 0.75s ease-out forwards;
+  }
+  @keyframes touch-ripple {
+    from { opacity: 0.95; transform: translate(-50%, -50%) scale(0.4); }
+    to { opacity: 0; transform: translate(-50%, -50%) scale(2.4); }
+  }
+
   /* ================================================================
      SÍMBOLOS FLOTANTES DECORATIVOS — sutil, temático (no Nicolás)
   ================================================================ */
@@ -119,7 +147,7 @@
     letter-spacing: 0.18em;
     text-transform: uppercase;
     color: var(--accent-dim);
-    margin-bottom: 2.2rem;
+    margin-bottom: 3rem;
   }
   .toc-item {
     display: flex; align-items: baseline; gap: 0.9rem;
@@ -513,7 +541,7 @@
   </div>
   <div class="sub-page-body">
     <div class="entry">
-      <h3>Let's build something together.</h3>
+      <h3>Let's build something together!</h3>
       <p>I'm available for projects in sound design and editing for film, electroacoustic composition, and instrument making. Feel free to reach out — I'd love to hear about what you're working on.</p>
 
       <div class="contact-terminal">
@@ -549,6 +577,102 @@
       setTimeout(() => { const c = document.querySelector('.credit-list'); if (c) c.classList.add('visible'); }, 350);
     }
     t1();
+  })();
+</script>
+
+<script>
+  /* ================================================================
+     1A. TACTILE FEEDBACK — pulso visual y sonido breve para móviles
+  ================================================================ */
+  (function () {
+    const touchTargets = '.toc-item, .back-btn, .pill-nav a, .audio-play-btn, .contact-terminal-link, .entry';
+    const isTouch = window.matchMedia('(hover: none), (pointer: coarse)').matches;
+    let audioCtx = null;
+    let masterGain = null;
+    let swipeStartX = null;
+    let swipeStartY = null;
+
+    function ensureAudio() {
+      if (audioCtx) return;
+      const AudioCtor = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtor) return;
+      audioCtx = new AudioCtor();
+      masterGain = audioCtx.createGain();
+      masterGain.gain.value = 0.0001;
+      masterGain.connect(audioCtx.destination);
+    }
+
+    function triggerTapSound() {
+      ensureAudio();
+      if (!audioCtx || !masterGain) return;
+      if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+      const now = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const oscGain = audioCtx.createGain();
+      const filter = audioCtx.createBiquadFilter();
+      osc.type = Math.random() > 0.5 ? 'triangle' : 'sine';
+      osc.frequency.setValueAtTime(220 + Math.random() * 180, now);
+      osc.frequency.exponentialRampToValueAtTime(115 + Math.random() * 70, now + 0.16);
+      filter.type = 'bandpass';
+      filter.frequency.value = 750 + Math.random() * 600;
+      filter.Q.value = 1.1;
+      oscGain.gain.setValueAtTime(0.0001, now);
+      oscGain.gain.exponentialRampToValueAtTime(0.025, now + 0.01);
+      oscGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+      osc.connect(filter);
+      filter.connect(oscGain);
+      oscGain.connect(masterGain);
+      osc.start(now);
+      osc.stop(now + 0.2);
+    }
+
+    function createRipple(x, y) {
+      const ripple = document.createElement('span');
+      ripple.className = 'touch-ripple';
+      ripple.style.left = x + 'px';
+      ripple.style.top = y + 'px';
+      document.body.appendChild(ripple);
+      setTimeout(() => ripple.remove(), 760);
+    }
+
+    function handleTouchFeedback(event) {
+      if (!isTouch) return;
+      const targetEl = event.target instanceof Element ? event.target : event.target.parentElement;
+      if (!targetEl) return;
+      const trigger = targetEl.closest(touchTargets);
+      if (!trigger) return;
+      const rect = trigger.getBoundingClientRect();
+      const x = event.clientX ?? rect.left + rect.width / 2;
+      const y = event.clientY ?? rect.top + rect.height / 2;
+      createRipple(x, y);
+      triggerTapSound();
+    }
+
+    document.addEventListener('pointerdown', (event) => {
+      if (event.pointerType === 'mouse') return;
+      handleTouchFeedback(event);
+    }, { passive: true });
+
+    document.addEventListener('touchstart', (event) => {
+      if (event.touches.length !== 1) return;
+      const targetEl = event.target instanceof Element ? event.target : event.target.parentElement;
+      const trigger = targetEl ? targetEl.closest(touchTargets) : null;
+      if (!trigger) return;
+      swipeStartX = event.touches[0].clientX;
+      swipeStartY = event.touches[0].clientY;
+    }, { passive: true });
+
+    document.addEventListener('touchend', (event) => {
+      if (swipeStartX === null || swipeStartY === null) return;
+      const touch = event.changedTouches[0];
+      const dx = touch.clientX - swipeStartX;
+      const dy = touch.clientY - swipeStartY;
+      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 70 && dx > 0) {
+        hideSubPage();
+      }
+      swipeStartX = null;
+      swipeStartY = null;
+    }, { passive: true });
   })();
 </script>
 
