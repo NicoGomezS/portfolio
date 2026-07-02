@@ -649,8 +649,9 @@
 <script>
   /* ================================================================
      1. SUB-PAGES — abrir / cerrar con transición de fade
-     2. PLAY MODE — letras flotantes tipo agua: se repelen al tocarlas
-        y se desordenan al agitar el dispositivo (acelerómetro)
+     2. PLAY MODE — letras flotantes tipo agua: se repelen/arrastran
+        al tocarlas y reaccionan proporcionalmente al movimiento real
+        del dispositivo (acelerómetro), sin gravedad ni retorno elástico
      3. AUDIO PLAYER — HTML5 nativo, carga perezosa al tocar ▶
   ================================================================ */
 
@@ -665,20 +666,29 @@
 
   /* ---- Play Mode: sensores ---- */
   let sensorsPermissionRequested = false;
-  let orientationEnabled = true;   // controla la inclinación continua (efecto "bandeja con agua")
-  let motionEnabled = true;        // controla la detección de sacudidas (acelerómetro)
+  let orientationEnabled = true;   // inclinación continua (efecto "bandeja con agua")
+  let motionEnabled = true;        // movimiento/sacudida (acelerómetro)
   let playTilt = { x: 0, y: 0 };
   let lastAcceleration = null;
-  let lastShakeAt = 0;
-  const SHAKE_DELTA_THRESHOLD = 13;  // sensibilidad del gesto de sacudida
-  const SHAKE_COOLDOWN_MS = 380;     // evita disparar varias sacudidas seguidas
+  let movementEnergy = 0;          // 0-1, alimenta el temblor visual y la capa sonora de movimiento
+  const JERK_DEADZONE = 1.1;       // ignora el ruido normal de sostener el teléfono
+  const JERK_TO_FORCE = 0.5;       // cuánta fuerza física recibe cada letra por unidad de sacudida
+  const JERK_TO_ENERGY = 22;       // cuánta sacudida hace falta para energía sonora máxima
 
   /* ---- Play Mode: toque (agua) ---- */
-  const playPointers = new Map(); // pointerId -> { x, y, strength }
+  const playPointers = new Map(); // pointerId -> { x, y, strength, dragVX, dragVY }
 
   /* ---- Play Mode: audio ---- */
   let playAudioCtx = null;
-  let playGain = null;
+  let masterGain = null;
+  let dryBus = null;
+  let reverbSend = null;
+  let reverbNode = null;
+  let reverbReturn = null;
+  let droneNodes = null;
+  let marineNodes = null;
+  let movementNodes = null;
+  const dragAudioNodes = new Map(); // pointerId -> nodos de sonido de arrastre
 
   function createFadeOverlay() {
     const overlay = document.createElement('div');
@@ -741,40 +751,377 @@
   });
 
   /* ================================================================
-     AUDIO — un breve "pop" tipo gota de agua al tocar o sacudir
+     MARQUEE "PLAY MODE" — genera copias suficientes para que nunca
+     se vea un espacio en blanco, y ajusta la duración para una
+     velocidad de arrastre constante (más rápida que antes), sea
+     cual sea el ancho de pantalla. El bucle es matemáticamente
+     infinito: translateX(-50%) siempre cae justo en un borde de
+     copia porque el número de copias es par.
   ================================================================ */
+  (function setupPlayModeMarquee() {
+    const wrapper = document.querySelector('.play-mode-link');
+    const label = wrapper?.querySelector('.toc-label');
+    const baseCopy = label?.querySelector('.marquee-copy');
+    if (!wrapper || !label || !baseCopy) return;
+
+    const SPEED_PX_PER_SECOND = 130; // un poco más rápida que la original (~90px/s)
+    const COVERAGE_MULTIPLIER = 2.4; // margen amplio: nunca se agota la tira antes del loop
+
+    function buildMarquee() {
+      label.querySelectorAll('.marquee-copy:not(:first-child)').forEach(n => n.remove());
+
+      const containerWidth = wrapper.getBoundingClientRect().width || window.innerWidth;
+      const copyWidth = baseCopy.getBoundingClientRect().width;
+      if (!copyWidth) return;
+
+      const targetWidth = containerWidth * COVERAGE_MULTIPLIER;
+      let count = Math.max(2, Math.ceil(targetWidth / copyWidth));
+      if (count % 2 !== 0) count += 1; // par: así el -50% cae exacto en un borde de copia
+
+      for (let i = 1; i < count; i++) {
+        const clone = baseCopy.cloneNode(true);
+        clone.setAttribute('aria-hidden', 'true');
+        label.appendChild(clone);
+      }
+
+      const totalWidth = copyWidth * count;
+      const duration = Math.max(1.2, totalWidth / SPEED_PX_PER_SECOND);
+      label.style.animationDuration = duration.toFixed(2) + 's';
+    }
+
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(buildMarquee).catch(buildMarquee);
+    } else {
+      buildMarquee();
+    }
+    window.addEventListener('resize', buildMarquee);
+  })();
+
+  /* ================================================================
+     AUDIO — composición electroacústica temática de agua
+     Capas: (1) drone grave con reverb larga, (2) fondo marino
+     (ruido filtrado con oleaje lento), (3) capa de movimiento que
+     reacciona en continuo a la sacudida del dispositivo, (4) capa
+     táctil: gota grave/densa al tocar, corriente densa al arrastrar.
+     Todo comparte el mismo bus de reverb para que suene como un
+     solo espacio — una sola "agua" para todos los gestos.
+  ================================================================ */
+  function rampGain(param, target, time) {
+    if (!playAudioCtx) return;
+    const now = playAudioCtx.currentTime;
+    param.cancelScheduledValues(now);
+    param.setValueAtTime(Math.max(0.0001, param.value), now);
+    param.linearRampToValueAtTime(Math.max(0.0001, target), now + time);
+  }
+
+  function connectToBuses(sourceNode, dryLevel = 0.7, wetLevel = 0.5) {
+    const dry = playAudioCtx.createGain();
+    dry.gain.value = dryLevel;
+    const wet = playAudioCtx.createGain();
+    wet.gain.value = wetLevel;
+    sourceNode.connect(dry);
+    sourceNode.connect(wet);
+    dry.connect(dryBus);
+    wet.connect(reverbSend);
+    return { dry, wet };
+  }
+
+  function createNoiseBuffer(seconds = 2) {
+    const length = Math.floor(playAudioCtx.sampleRate * seconds);
+    const buffer = playAudioCtx.createBuffer(1, length, playAudioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < length; i++) data[i] = Math.random() * 2 - 1;
+    return buffer;
+  }
+
+  function buildImpulseResponse(duration = 5.5, decay = 2.6) {
+    const rate = playAudioCtx.sampleRate;
+    const length = Math.floor(rate * duration);
+    const impulse = playAudioCtx.createBuffer(2, length, rate);
+    for (let ch = 0; ch < 2; ch++) {
+      const data = impulse.getChannelData(ch);
+      for (let i = 0; i < length; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, decay);
+      }
+    }
+    return impulse;
+  }
+
+  function makeDistortionCurve(amount = 0) {
+    const n = 256;
+    const curve = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const x = (i / (n - 1)) * 2 - 1;
+      curve[i] = amount <= 0 ? x : Math.tanh(x * (1 + amount * 7));
+    }
+    return curve;
+  }
+
   function initPlayAudio() {
     if (playAudioCtx) return;
     const AudioCtor = window.AudioContext || window.webkitAudioContext;
     if (!AudioCtor) return;
     playAudioCtx = new AudioCtor();
-    playGain = playAudioCtx.createGain();
-    playGain.gain.value = 0.0001;
-    playGain.connect(playAudioCtx.destination);
+
+    masterGain = playAudioCtx.createGain();
+    masterGain.gain.value = 0.0001;
+    masterGain.connect(playAudioCtx.destination);
+
+    dryBus = playAudioCtx.createGain();
+    dryBus.gain.value = 0.85;
+    dryBus.connect(masterGain);
+
+    reverbSend = playAudioCtx.createGain();
+    reverbSend.gain.value = 1;
+    reverbNode = playAudioCtx.createConvolver();
+    reverbNode.buffer = buildImpulseResponse(5.5, 2.6);
+    const reverbDarken = playAudioCtx.createBiquadFilter();
+    reverbDarken.type = 'lowpass';
+    reverbDarken.frequency.value = 2000; // reverb cálida y profunda, no metálica
+    reverbReturn = playAudioCtx.createGain();
+    reverbReturn.gain.value = 0.6;
+    reverbSend.connect(reverbNode);
+    reverbNode.connect(reverbDarken);
+    reverbDarken.connect(reverbReturn);
+    reverbReturn.connect(masterGain);
   }
 
-  function playSplashTone(intensity = 1, x = 0, y = 0) {
-    initPlayAudio();
-    if (!playAudioCtx || !playGain) return;
+  /* ---- Capa 1: drone grave de fondo, mayormente reverb ---- */
+  function startDrone() {
+    if (droneNodes || !playAudioCtx) return;
+    const root = 55; // A1 — centro tonal de toda la composición
+    const partials = [root, root * 1.5, root * 2]; // fundamental, quinta, octava
+
+    const gain = playAudioCtx.createGain();
+    gain.gain.value = 0.0001;
+
+    const filter = playAudioCtx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 300;
+
+    const lfo = playAudioCtx.createOscillator();
+    lfo.frequency.value = 0.05; // respiración muy lenta del filtro
+    const lfoGain = playAudioCtx.createGain();
+    lfoGain.gain.value = 45;
+    lfo.connect(lfoGain);
+    lfoGain.connect(filter.frequency);
+    lfo.start();
+
+    const oscillators = partials.map((freq, i) => {
+      const osc = playAudioCtx.createOscillator();
+      osc.type = i === 0 ? 'sine' : 'triangle';
+      osc.frequency.value = freq;
+      osc.detune.value = (Math.random() - 0.5) * 7;
+      osc.connect(filter);
+      osc.start();
+      return osc;
+    });
+
+    filter.connect(gain);
+    const buses = connectToBuses(gain, 0.14, 0.9); // "ligero" y mayormente reverb larga
+    rampGain(gain.gain, 0.05, 3.2);
+
+    droneNodes = { oscillators, filter, lfo, lfoGain, gain, buses };
+  }
+
+  function stopDrone() {
+    if (!droneNodes) return;
+    const nodes = droneNodes;
+    droneNodes = null;
+    rampGain(nodes.gain.gain, 0.0001, 1.1);
+    setTimeout(() => {
+      [...nodes.oscillators, nodes.lfo].forEach(n => { try { n.stop(); } catch (err) {} });
+    }, 1200);
+  }
+
+  /* ---- Capa 2: fondo marino — ruido filtrado con oleaje lento ---- */
+  function startMarineBed() {
+    if (marineNodes || !playAudioCtx) return;
+    const noise = playAudioCtx.createBufferSource();
+    noise.buffer = createNoiseBuffer(4);
+    noise.loop = true;
+
+    const filter = playAudioCtx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = 200;
+    filter.Q.value = 0.7;
+
+    const swellLfo = playAudioCtx.createOscillator();
+    swellLfo.frequency.value = 0.07; // oleaje: un ciclo cada ~14s
+    const swellDepth = playAudioCtx.createGain();
+    swellDepth.gain.value = 130;
+    swellLfo.connect(swellDepth);
+    swellDepth.connect(filter.frequency);
+    swellLfo.start();
+
+    const gain = playAudioCtx.createGain();
+    gain.gain.value = 0.0001;
+
+    noise.connect(filter);
+    filter.connect(gain);
+    const buses = connectToBuses(gain, 0.45, 0.55);
+    noise.start();
+    rampGain(gain.gain, 0.032, 4);
+
+    marineNodes = { noise, filter, swellLfo, swellDepth, gain, buses };
+  }
+
+  function stopMarineBed() {
+    if (!marineNodes) return;
+    const nodes = marineNodes;
+    marineNodes = null;
+    rampGain(nodes.gain.gain, 0.0001, 1.1);
+    setTimeout(() => {
+      try { nodes.noise.stop(); } catch (err) {}
+      try { nodes.swellLfo.stop(); } catch (err) {}
+    }, 1200);
+  }
+
+  /* ---- Capa 3: reacción al movimiento — ruido cuya apertura,
+     brillo y distorsión crecen con la intensidad de la sacudida ---- */
+  function startMovementLayer() {
+    if (movementNodes || !playAudioCtx) return;
+    const noise = playAudioCtx.createBufferSource();
+    noise.buffer = createNoiseBuffer(2);
+    noise.loop = true;
+
+    const filter = playAudioCtx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 150; // en reposo: casi inaudible y muy oscuro
+    filter.Q.value = 0.6;
+
+    const shaper = playAudioCtx.createWaveShaper();
+    shaper.curve = makeDistortionCurve(0);
+    shaper.oversample = '2x';
+
+    const gain = playAudioCtx.createGain();
+    gain.gain.value = 0.0001;
+
+    noise.connect(filter);
+    filter.connect(shaper);
+    shaper.connect(gain);
+    const buses = connectToBuses(gain, 0.75, 0.4);
+    noise.start();
+
+    movementNodes = { noise, filter, shaper, gain, buses, lastCurveAmount: 0 };
+  }
+
+  function updateMovementLayer(energy) {
+    if (!movementNodes || !playAudioCtx) return;
+    const now = playAudioCtx.currentTime;
+    movementNodes.gain.gain.setTargetAtTime(0.0001 + energy * 0.1, now, 0.05);
+    movementNodes.filter.frequency.setTargetAtTime(150 + energy * 2400, now, 0.08);
+    if (Math.abs(energy - movementNodes.lastCurveAmount) > 0.04) {
+      movementNodes.shaper.curve = makeDistortionCurve(energy);
+      movementNodes.lastCurveAmount = energy;
+    }
+  }
+
+  function stopMovementLayer() {
+    if (!movementNodes) return;
+    const nodes = movementNodes;
+    movementNodes = null;
+    rampGain(nodes.gain.gain, 0.0001, 0.4);
+    setTimeout(() => { try { nodes.noise.stop(); } catch (err) {} }, 500);
+  }
+
+  /* ---- Capa 4: toque — gota grave y densa; arrastre = corriente ---- */
+  function playWaterDrop(intensity = 1, x = 0, y = 0) {
+    if (!playAudioCtx) return;
     if (playAudioCtx.state === 'suspended') playAudioCtx.resume().catch(() => {});
     const now = playAudioCtx.currentTime;
+    const clamped = Math.min(2, Math.max(0.25, intensity));
+
     const osc = playAudioCtx.createOscillator();
-    const osc2 = playAudioCtx.createOscillator();
-    const gain = playAudioCtx.createGain();
+    osc.type = 'sine';
+    const startFreq = 100 + clamped * 55; // desciende hacia el registro del drone (A1)
+    osc.frequency.setValueAtTime(startFreq, now);
+    osc.frequency.exponentialRampToValueAtTime(40, now + 0.36);
+    const oscGain = playAudioCtx.createGain();
+    oscGain.gain.setValueAtTime(0.0001, now);
+    oscGain.gain.exponentialRampToValueAtTime(0.15 + clamped * 0.07, now + 0.012);
+    oscGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.44);
+    osc.connect(oscGain);
+    connectToBuses(oscGain, 0.8, 0.55);
+
+    const noise = playAudioCtx.createBufferSource();
+    noise.buffer = createNoiseBuffer(0.5);
+    const noiseFilter = playAudioCtx.createBiquadFilter();
+    noiseFilter.type = 'lowpass';
+    noiseFilter.frequency.value = 240;
+    const noiseGain = playAudioCtx.createGain();
+    noiseGain.gain.setValueAtTime(0.0001, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.045 + clamped * 0.045, now + 0.01);
+    noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+    noise.connect(noiseFilter);
+    noiseFilter.connect(noiseGain);
+    connectToBuses(noiseGain, 0.7, 0.55);
+
+    osc.start(now); osc.stop(now + 0.46);
+    noise.start(now); noise.stop(now + 0.22);
+  }
+
+  function startDragSound(pointerId) {
+    if (!playAudioCtx || dragAudioNodes.has(pointerId)) return;
+    const noise = playAudioCtx.createBufferSource();
+    noise.buffer = createNoiseBuffer(2);
+    noise.loop = true;
+
     const filter = playAudioCtx.createBiquadFilter();
-    const freq = 180 + (x / Math.max(1, window.innerWidth)) * 180;
-    const freq2 = 240 + (y / Math.max(1, window.innerHeight)) * 180;
-    osc.type = 'triangle'; osc2.type = 'sine';
-    osc.frequency.setValueAtTime(freq, now);
-    osc.frequency.exponentialRampToValueAtTime(freq * 0.75, now + 0.18);
-    osc2.frequency.setValueAtTime(freq2, now);
-    osc2.frequency.exponentialRampToValueAtTime(freq2 * 0.68, now + 0.16);
-    filter.type = 'bandpass'; filter.frequency.value = 700 + Math.random() * 400; filter.Q.value = 1.2;
-    gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(0.01 + Math.min(2.2, intensity) * 0.008, now + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
-    osc.connect(filter); osc2.connect(filter); filter.connect(gain); gain.connect(playGain);
-    osc.start(now); osc2.start(now); osc.stop(now + 0.2); osc2.stop(now + 0.2);
+    filter.type = 'lowpass';
+    filter.frequency.value = 130;
+    filter.Q.value = 0.7;
+
+    const gain = playAudioCtx.createGain();
+    gain.gain.value = 0.0001;
+
+    noise.connect(filter);
+    filter.connect(gain);
+    const buses = connectToBuses(gain, 0.6, 0.6);
+    noise.start();
+
+    dragAudioNodes.set(pointerId, { noise, filter, gain, buses, lastX: null, lastY: null });
+  }
+
+  function updateDragSound(pointerId, x, y) {
+    const nodes = dragAudioNodes.get(pointerId);
+    if (!nodes || !playAudioCtx) return;
+    const now = playAudioCtx.currentTime;
+    let speed = 0;
+    if (nodes.lastX !== null) speed = Math.hypot(x - nodes.lastX, y - nodes.lastY);
+    nodes.lastX = x; nodes.lastY = y;
+    const targetGain = Math.min(0.1, 0.015 + speed * 0.0028);
+    const targetFreq = 120 + Math.min(1, speed / 45) * 340; // agua densa: se mantiene grave incluso rápido
+    nodes.gain.gain.setTargetAtTime(targetGain, now, 0.07);
+    nodes.filter.frequency.setTargetAtTime(targetFreq, now, 0.1);
+  }
+
+  function stopDragSound(pointerId) {
+    const nodes = dragAudioNodes.get(pointerId);
+    if (!nodes || !playAudioCtx) return;
+    dragAudioNodes.delete(pointerId);
+    rampGain(nodes.gain.gain, 0.0001, 0.5);
+    setTimeout(() => { try { nodes.noise.stop(); } catch (err) {} }, 600);
+  }
+
+  function fadeAudioIn() {
+    if (!playAudioCtx) return;
+    if (playAudioCtx.state === 'suspended') playAudioCtx.resume().catch(() => {});
+    rampGain(masterGain.gain, 0.9, 0.6);
+    startDrone();
+    startMarineBed();
+    startMovementLayer();
+  }
+
+  function fadeAudioOutAndStop() {
+    if (!playAudioCtx) return;
+    rampGain(masterGain.gain, 0.0001, 0.8);
+    dragAudioNodes.forEach((_, id) => stopDragSound(id));
+    setTimeout(() => {
+      stopDrone();
+      stopMarineBed();
+      stopMovementLayer();
+    }, 200);
   }
 
   function showPlayHint() {
@@ -907,10 +1254,11 @@
 
   /* ================================================================
      FÍSICA — cada letra se mueve como una gota de agua: el toque la
-     empuja/arremolina y una sacudida le da un impulso aleatorio; solo
-     la fricción los frena, nunca hay un resorte que las devuelva a su
-     posición inicial (el agua se rompe, no rebota) ni gravedad que las
-     haga "caer al piso"
+     empuja/arrastra, y el movimiento real del dispositivo la sacude
+     de forma proporcional (ligero = ligero, brusco = brusco); solo
+     la fricción los frena, nunca un resorte que las devuelva a su
+     posición inicial (el agua se rompe, no rebota) ni gravedad que
+     las haga "caer al piso": quedan esparcidas por la pantalla
   ================================================================ */
   function updatePlayScene() {
     if (!playModeActive || !playLetters.length) {
@@ -920,6 +1268,12 @@
     const width = window.innerWidth;
     const height = window.innerHeight;
     const time = performance.now() / 1000;
+
+    // la corriente de arrastre de cada dedo se va apagando sola si el dedo se detiene
+    playPointers.forEach((pointer) => {
+      pointer.dragVX *= 0.8;
+      pointer.dragVY *= 0.8;
+    });
 
     playLetters.forEach((letter) => {
       const tiltX = playTilt.x * 0.0004;
@@ -938,15 +1292,17 @@
         const radial = pull * pointer.strength * 0.0055;
         pushX += (dx / dist) * radial;
         pushY += (dy / dist) * radial;
-        // leve empuje tangencial: da la sensación de remolino al arrastrar
+        // leve empuje tangencial: sensación de remolino
         const swirl = pull * pointer.strength * 0.002;
         pushX += (-dy / dist) * swirl;
         pushY += (dx / dist) * swirl;
+        // corriente de arrastre: si el dedo se mueve, lleva a la letra con él
+        pushX += pointer.dragVX * pull * pointer.strength * 0.09;
+        pushY += pointer.dragVY * pull * pointer.strength * 0.09;
       });
 
       letter.vx += tiltX + pushX;
       letter.vy += tiltY + pushY;
-      // fricción: frena el movimiento, pero no atrae a ningún punto fijo
       letter.vx *= 0.92;
       letter.vy *= 0.92;
       letter.x += letter.vx;
@@ -955,12 +1311,17 @@
       letter.y = Math.max(4, Math.min(height - letter.size, letter.y));
 
       // vaivén decorativo: no mueve la posición real, solo la hace "respirar"
-      // levemente donde sea que haya quedado, sin tirar de vuelta a ningún lado
       const swayX = Math.sin(time * 0.7 + letter.phase) * 0.6;
       const swayY = Math.cos(time * 0.62 + letter.phase * 1.16) * 0.5;
-
       letter.el.style.transform = `translate(${letter.x - letter.baseX + swayX}px, ${letter.y - letter.baseY + swayY}px)`;
     });
+
+    if (movementEnergy > 0.001) {
+      updateMovementLayer(movementEnergy);
+      movementEnergy *= 0.9;
+    } else if (movementNodes) {
+      updateMovementLayer(0);
+    }
 
     playFrame = requestAnimationFrame(updatePlayScene);
   }
@@ -979,21 +1340,23 @@
       letter.vx += (dx / dist) * force;
       letter.vy += (dy / dist) * force;
     });
-    playSplashTone(intensity, x, y);
   }
 
-  /* Sacudida — desordena todas las letras sin que "caigan": son
-     impulsos que solo la fricción disipa, nunca un resorte de retorno */
-  function scrambleLetters(intensity = 1) {
-    if (!playModeActive || !playLetters.length) return;
-    const clamped = Math.min(2.2, Math.max(0.4, intensity));
+  /* Movimiento real del dispositivo — impulso proporcional a la sacudida,
+     en la dirección del movimiento (con leve variación por letra para que
+     se vea como algo que se dispersa, no como un bloque rígido) */
+  function applyMovementForce(dax, day, jerk) {
+    if (!playLetters.length) return;
+    const forceX = dax * JERK_TO_FORCE;
+    const forceY = -day * JERK_TO_FORCE;
     playLetters.forEach((letter) => {
-      const angle = Math.random() * Math.PI * 2;
-      const force = (5 + Math.random() * 9) * clamped;
-      letter.vx += Math.cos(angle) * force;
-      letter.vy += Math.sin(angle) * force;
+      const jitterAngle = (Math.random() - 0.5) * 0.7;
+      const jitterScale = 0.55 + Math.random() * 0.9;
+      const cos = Math.cos(jitterAngle), sin = Math.sin(jitterAngle);
+      letter.vx += (forceX * cos - forceY * sin) * jitterScale;
+      letter.vy += (forceX * sin + forceY * cos) * jitterScale;
     });
-    playSplashTone(clamped, window.innerWidth / 2, window.innerHeight / 2);
+    movementEnergy = Math.min(1, Math.max(movementEnergy, jerk / JERK_TO_ENERGY));
   }
 
   function togglePlayMode() {
@@ -1009,6 +1372,8 @@
       clearPlayLetters();
       playPointers.clear();
       playTilt = { x: 0, y: 0 };
+      movementEnergy = 0;
+      lastAcceleration = null;
       playModeScrollPos = {
         x: window.scrollX || window.pageXOffset || 0,
         y: window.scrollY || window.pageYOffset || 0
@@ -1044,6 +1409,8 @@
       playLetters = createPlayLetters();
       playFrame = requestAnimationFrame(updatePlayScene);
       enablePlayMotionInput();
+      initPlayAudio();
+      fadeAudioIn();
     } else {
       const fadeOverlay = createFadeOverlay();
       syncPlayModeScrollLock(false);
@@ -1067,6 +1434,7 @@
       if (playFrame) cancelAnimationFrame(playFrame);
       playFrame = null;
       clearPlayLetters();
+      fadeAudioOutAndStop();
       requestAnimationFrame(() => {
         fadeOverlay.style.opacity = '1';
       });
@@ -1078,8 +1446,9 @@
   }
 
   /* ================================================================
-     SENSORES — inclinar = agua se ladea suavemente; sacudir = se
-     desordena todo (con enfriamiento para no disparar sin parar)
+     SENSORES — inclinar = agua se ladea suavemente; el movimiento
+     real (sacudida ligera o brusca) mueve las letras en proporción
+     directa a su intensidad, sin umbral ni "todo o nada"
   ================================================================ */
   window.addEventListener('deviceorientation', (e) => {
     if (!playModeActive || !orientationEnabled) return;
@@ -1093,11 +1462,12 @@
     if (!acc) return;
     const ax = acc.x || 0, ay = acc.y || 0, az = acc.z || 0;
     if (lastAcceleration) {
-      const delta = Math.abs(ax - lastAcceleration.x) + Math.abs(ay - lastAcceleration.y) + Math.abs(az - lastAcceleration.z);
-      const now = performance.now();
-      if (delta > SHAKE_DELTA_THRESHOLD && now - lastShakeAt > SHAKE_COOLDOWN_MS) {
-        lastShakeAt = now;
-        scrambleLetters(delta / SHAKE_DELTA_THRESHOLD);
+      const dax = ax - lastAcceleration.x;
+      const day = ay - lastAcceleration.y;
+      const daz = az - lastAcceleration.z;
+      const jerk = Math.hypot(dax, day, daz);
+      if (jerk > JERK_DEADZONE) {
+        applyMovementForce(dax, day, jerk);
       }
     }
     lastAcceleration = { x: ax, y: ay, z: az };
@@ -1105,14 +1475,17 @@
 
   /* ================================================================
      TOQUE — Pointer Events cubre mouse y táctil con una sola API;
-     admite varios dedos a la vez (cada uno empuja el agua por su lado)
+     admite varios dedos a la vez. Un toque simple = gota; arrastrar
+     = corriente que empuja las letras en la dirección del dedo.
   ================================================================ */
   const handlePointerDown = (e) => {
     if (!playModeActive) return;
     if (e.pointerType === 'touch') e.preventDefault();
     const strength = e.pointerType === 'touch' ? 1 : 0.5;
-    playPointers.set(e.pointerId, { x: e.clientX, y: e.clientY, strength });
-    splashAt(e.clientX, e.clientY, e.pointerType === 'touch' ? 1.1 : 0.65);
+    playPointers.set(e.pointerId, { x: e.clientX, y: e.clientY, strength, dragVX: 0, dragVY: 0 });
+    const intensity = e.pointerType === 'touch' ? 1.1 : 0.65;
+    splashAt(e.clientX, e.clientY, intensity);
+    playWaterDrop(intensity, e.clientX, e.clientY);
   };
 
   const handlePointerMove = (e) => {
@@ -1120,12 +1493,18 @@
     const pointer = playPointers.get(e.pointerId);
     if (!pointer) return;
     if (e.pointerType === 'touch') e.preventDefault();
+    pointer.dragVX = e.clientX - pointer.x;
+    pointer.dragVY = e.clientY - pointer.y;
     pointer.x = e.clientX;
     pointer.y = e.clientY;
+    // el sonido de arrastre solo arranca cuando de verdad hay arrastre, no en un toque simple
+    startDragSound(e.pointerId);
+    updateDragSound(e.pointerId, e.clientX, e.clientY);
   };
 
   const handlePointerUp = (e) => {
     playPointers.delete(e.pointerId);
+    stopDragSound(e.pointerId);
   };
 
   window.addEventListener('pointerdown', handlePointerDown, { passive: false });
@@ -1140,12 +1519,18 @@
     togglePlayMode();
   });
 
-  /* Pausa la animación si la pestaña queda en segundo plano (batería) */
+  /* Pausa animación y audio si la pestaña queda en segundo plano (batería) */
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
       if (playFrame) { cancelAnimationFrame(playFrame); playFrame = null; }
-    } else if (playModeActive && !playFrame) {
-      playFrame = requestAnimationFrame(updatePlayScene);
+      if (playAudioCtx && playAudioCtx.state === 'running') playAudioCtx.suspend().catch(() => {});
+    } else {
+      if (playModeActive && !playFrame) {
+        playFrame = requestAnimationFrame(updatePlayScene);
+      }
+      if (playModeActive && playAudioCtx && playAudioCtx.state === 'suspended') {
+        playAudioCtx.resume().catch(() => {});
+      }
     }
   });
 
