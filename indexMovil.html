@@ -664,16 +664,23 @@
   let playModeScrollPos = { x: 0, y: 0 };
   let playHintTimer = null;
 
+  /* ---- Play Mode: aparición progresiva de letras ---- */
+  let spawnBudget = 0;
+  let spawnTimer = null;
+  const EXTRA_LETTER_BUDGET = 220;     // cuántas letras extra puede soltar una sesión de Play Mode
+  const SPAWN_INTRO_MS = 480;          // duración de la transición de aparición (tamaño + opacidad)
+
   /* ---- Play Mode: sensores ---- */
   let sensorsPermissionRequested = false;
   let orientationEnabled = true;   // inclinación continua (efecto "bandeja con agua")
   let motionEnabled = true;        // movimiento/sacudida (acelerómetro)
   let playTilt = { x: 0, y: 0 };
   let lastAcceleration = null;
-  let movementEnergy = 0;          // 0-1, alimenta el temblor visual y la capa sonora de movimiento
+  let movementEnergy = 0;          // 0-1, decae solo: "tensión" que sube con la sacudida y se disuelve
+  let lastGrainAt = 0;
   const JERK_DEADZONE = 1.1;       // ignora el ruido normal de sostener el teléfono
   const JERK_TO_FORCE = 0.5;       // cuánta fuerza física recibe cada letra por unidad de sacudida
-  const JERK_TO_ENERGY = 22;       // cuánta sacudida hace falta para energía sonora máxima
+  const JERK_TO_ENERGY = 22;       // cuánta sacudida hace falta para energía máxima
 
   /* ---- Play Mode: toque (agua) ---- */
   const playPointers = new Map(); // pointerId -> { x, y, strength, dragVX, dragVY }
@@ -685,9 +692,13 @@
   let reverbSend = null;
   let reverbNode = null;
   let reverbReturn = null;
+  let delaySend = null;
+  let delayNode = null;
+  let delayFilter = null;
+  let delayFeedback = null;
+  let delayLfo = null;
   let droneNodes = null;
   let marineNodes = null;
-  let movementNodes = null;
   const dragAudioNodes = new Map(); // pointerId -> nodos de sonido de arrastre
 
   function createFadeOverlay() {
@@ -865,7 +876,14 @@
 
     masterGain = playAudioCtx.createGain();
     masterGain.gain.value = 0.0001;
-    masterGain.connect(playAudioCtx.destination);
+    const masterCompressor = playAudioCtx.createDynamicsCompressor();
+    masterCompressor.threshold.value = -26;
+    masterCompressor.knee.value = 18;
+    masterCompressor.ratio.value = 3.2;
+    masterCompressor.attack.value = 0.006;
+    masterCompressor.release.value = 0.25;
+    masterGain.connect(masterCompressor);
+    masterCompressor.connect(playAudioCtx.destination);
 
     dryBus = playAudioCtx.createGain();
     dryBus.gain.value = 0.85;
@@ -884,53 +902,132 @@
     reverbNode.connect(reverbDarken);
     reverbDarken.connect(reverbReturn);
     reverbReturn.connect(masterGain);
+
+    // Bus de delay: red de retroalimentación para el toque y los granos de
+    // movimiento — así los gestos dejan eco, no solo un golpe seco.
+    // El tiempo de delay respira con un LFO lentísimo (como un eco que
+    // se dobla ligeramente bajo el agua), y una parte de su salida
+    // también alimenta la reverb para que los ecos tengan cola propia.
+    delaySend = playAudioCtx.createGain();
+    delaySend.gain.value = 1;
+    delayNode = playAudioCtx.createDelay(1.5);
+    delayNode.delayTime.value = 0.3;
+    delayFilter = playAudioCtx.createBiquadFilter();
+    delayFilter.type = 'lowpass';
+    delayFilter.frequency.value = 1500; // ecos cálidos y oscuros, no metálicos
+    delayFeedback = playAudioCtx.createGain();
+    delayFeedback.gain.value = 0.42;
+    const delayReturn = playAudioCtx.createGain();
+    delayReturn.gain.value = 0.55;
+
+    delaySend.connect(delayNode);
+    delayNode.connect(delayFilter);
+    delayFilter.connect(delayFeedback);
+    delayFeedback.connect(delayNode);       // realimentación: repite y se apaga sola
+    delayFilter.connect(delayReturn);
+    delayReturn.connect(masterGain);
+    delayReturn.connect(reverbSend);        // los ecos también dejan cola de reverb
+
+    delayLfo = playAudioCtx.createOscillator();
+    delayLfo.frequency.value = 0.035;       // ciclo de ~29s: variación lenta, casi imperceptible
+    const delayLfoGain = playAudioCtx.createGain();
+    delayLfoGain.gain.value = 0.045;        // +-45ms de variación en el tiempo de delay
+    delayLfo.connect(delayLfoGain);
+    delayLfoGain.connect(delayNode.delayTime);
+    delayLfo.start();
   }
 
   /* ---- Capa 1: drone grave de fondo, mayormente reverb ---- */
+  /* ---- Capa 1: drone de fondo — ya no son 3 osciladores fijos.
+     Hay 6 parciales posibles sobre la fundamental (proporciones simples:
+     1, 1.5, 2, 3, 4, 6 — un armónico "modal", nunca disonante). Los dos
+     primeros (fundamental y quinta) están siempre presentes; los otros
+     cuatro van entrando de a poco según cuántas letras hay en pantalla
+     — así el drone literalmente se vuelve más rico/denso a medida que
+     el Play Mode se llena. Además, cada 14-26s el color del filtro (y
+     el detune de algunos parciales) deriva lentamente a un nuevo punto,
+     para que también evolucione con el tiempo aunque nadie lo toque. ---- */
+  const DRONE_PARTIALS = [
+    { ratio: 1,   type: 'sine',     threshold: 0,   range: 1,  level: 0.05 },  // fundamental: siempre
+    { ratio: 1.5, type: 'triangle', threshold: 0,   range: 1,  level: 0.042 }, // quinta: siempre
+    { ratio: 2,   type: 'triangle', threshold: 15,  range: 55, level: 0.032 },
+    { ratio: 3,   type: 'sine',     threshold: 55,  range: 70, level: 0.026 },
+    { ratio: 4,   type: 'triangle', threshold: 110, range: 80, level: 0.022 },
+    { ratio: 6,   type: 'sine',     threshold: 175, range: 90, level: 0.018 }
+  ];
+
   function startDrone() {
     if (droneNodes || !playAudioCtx) return;
     const root = 55; // A1 — centro tonal de toda la composición
-    const partials = [root, root * 1.5, root * 2]; // fundamental, quinta, octava
-
-    const gain = playAudioCtx.createGain();
-    gain.gain.value = 0.0001;
 
     const filter = playAudioCtx.createBiquadFilter();
     filter.type = 'lowpass';
     filter.frequency.value = 300;
 
-    const lfo = playAudioCtx.createOscillator();
-    lfo.frequency.value = 0.05; // respiración muy lenta del filtro
-    const lfoGain = playAudioCtx.createGain();
-    lfoGain.gain.value = 45;
-    lfo.connect(lfoGain);
-    lfoGain.connect(filter.frequency);
-    lfo.start();
+    const filterLfo = playAudioCtx.createOscillator();
+    filterLfo.frequency.value = 0.05; // respiración rápida (~20s), constante
+    const filterLfoGain = playAudioCtx.createGain();
+    filterLfoGain.gain.value = 45;
+    filterLfo.connect(filterLfoGain);
+    filterLfoGain.connect(filter.frequency);
+    filterLfo.start();
 
-    const oscillators = partials.map((freq, i) => {
+    const partials = DRONE_PARTIALS.map((def) => {
       const osc = playAudioCtx.createOscillator();
-      osc.type = i === 0 ? 'sine' : 'triangle';
-      osc.frequency.value = freq;
+      osc.type = def.type;
+      osc.frequency.value = root * def.ratio;
       osc.detune.value = (Math.random() - 0.5) * 7;
-      osc.connect(filter);
+      const partialGain = playAudioCtx.createGain();
+      partialGain.gain.value = 0.0001;
+      osc.connect(partialGain);
+      partialGain.connect(filter);
       osc.start();
-      return osc;
+      return { osc, gain: partialGain, ...def };
     });
 
-    filter.connect(gain);
-    const buses = connectToBuses(gain, 0.14, 0.9); // "ligero" y mayormente reverb larga
-    rampGain(gain.gain, 0.05, 3.2);
+    const masterDroneGain = playAudioCtx.createGain();
+    masterDroneGain.gain.value = 0.0001;
+    filter.connect(masterDroneGain);
+    const buses = connectToBuses(masterDroneGain, 0.14, 0.9); // "ligero" y mayormente reverb larga
+    rampGain(masterDroneGain.gain, 1, 3.2); // el nivel real lo da cada parcial; esto es solo el fundido de entrada
 
-    droneNodes = { oscillators, filter, lfo, lfoGain, gain, buses };
+    droneNodes = { partials, filter, filterLfo, filterLfoGain, gain: masterDroneGain, buses, wanderTimer: null };
+    updateDroneForLetterCount(playLetters.length);
+    scheduleDroneWander();
+  }
+
+  function updateDroneForLetterCount(count) {
+    if (!droneNodes || !playAudioCtx) return;
+    const now = playAudioCtx.currentTime;
+    droneNodes.partials.forEach((p) => {
+      const proportion = Math.min(1, Math.max(0, (count - p.threshold) / p.range));
+      p.gain.gain.setTargetAtTime(0.0001 + proportion * p.level, now, 1.6); // cambio lento, nunca brusco
+    });
+  }
+
+  function scheduleDroneWander() {
+    if (!droneNodes) return;
+    const delay = 14000 + Math.random() * 12000; // cada 14-26s, distinto cada vez
+    droneNodes.wanderTimer = setTimeout(() => {
+      if (!droneNodes || !playAudioCtx || !playModeActive) return;
+      const now = playAudioCtx.currentTime;
+      const targetCutoff = 220 + Math.random() * 480; // nuevo "color" tímbrico del drone
+      droneNodes.filter.frequency.setTargetAtTime(targetCutoff, now, 5 + Math.random() * 4);
+      droneNodes.partials.forEach((p) => {
+        if (Math.random() < 0.5) p.osc.detune.setTargetAtTime((Math.random() - 0.5) * 14, now, 6);
+      });
+      scheduleDroneWander();
+    }, delay);
   }
 
   function stopDrone() {
     if (!droneNodes) return;
     const nodes = droneNodes;
     droneNodes = null;
+    if (nodes.wanderTimer) clearTimeout(nodes.wanderTimer);
     rampGain(nodes.gain.gain, 0.0001, 1.1);
     setTimeout(() => {
-      [...nodes.oscillators, nodes.lfo].forEach(n => { try { n.stop(); } catch (err) {} });
+      [...nodes.partials.map(p => p.osc), nodes.filterLfo].forEach(n => { try { n.stop(); } catch (err) {} });
     }, 1200);
   }
 
@@ -977,88 +1074,149 @@
     }, 1200);
   }
 
-  /* ---- Capa 3: reacción al movimiento — ruido cuya apertura,
-     brillo y distorsión crecen con la intensidad de la sacudida ---- */
-  function startMovementLayer() {
-    if (movementNodes || !playAudioCtx) return;
+  /* ---- Capa 3: reacción al movimiento — no es una capa continua que
+     sube y baja de volumen (eso es lo que sonaba a "sfx"), sino granos
+     cortos y estocásticos: cada sacudida dispara una textura de ruido
+     filtrado con parámetros distintos cada vez (banda, resonancia,
+     duración, si lleva distorsión o no), que se reparte entre seco,
+     delay y reverb. La superposición de granos en el delay con
+     realimentación es lo que genera algo que evoluciona, no un efecto
+     de sonido literal. Además, una "tensión" de fondo (movementEnergy)
+     sube con la sacudida sostenida y abre un poco el fondo marino y
+     la realimentación del delay, para que la atmósfera entera responda,
+     no solo el gesto puntual. */
+  function triggerMovementGrain(energy) {
+    if (!playAudioCtx) return;
+    const now = playAudioCtx.currentTime;
+    const clamped = Math.min(1, Math.max(0, energy));
+
     const noise = playAudioCtx.createBufferSource();
-    noise.buffer = createNoiseBuffer(2);
-    noise.loop = true;
+    noise.buffer = createNoiseBuffer(0.5);
 
     const filter = playAudioCtx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.value = 150; // en reposo: casi inaudible y muy oscuro
-    filter.Q.value = 0.6;
-
-    const shaper = playAudioCtx.createWaveShaper();
-    shaper.curve = makeDistortionCurve(0);
-    shaper.oversample = '2x';
+    filter.type = Math.random() < 0.5 ? 'bandpass' : 'lowpass';
+    const baseCutoff = 160 + Math.random() * 320;
+    filter.frequency.value = baseCutoff + clamped * (700 + Math.random() * 900);
+    filter.Q.value = 0.6 + Math.random() * (1.2 + clamped * 2);
 
     const gain = playAudioCtx.createGain();
-    gain.gain.value = 0.0001;
+    const dur = 0.16 + Math.random() * 0.5 + clamped * 0.3;
+    const peak = 0.05 + clamped * 0.16 + Math.random() * 0.03;
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(peak, now + 0.015 + Math.random() * 0.03);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
 
     noise.connect(filter);
-    filter.connect(shaper);
-    shaper.connect(gain);
-    const buses = connectToBuses(gain, 0.75, 0.4);
-    noise.start();
+    let tail = filter;
 
-    movementNodes = { noise, filter, shaper, gain, buses, lastCurveAmount: 0 };
-  }
-
-  function updateMovementLayer(energy) {
-    if (!movementNodes || !playAudioCtx) return;
-    const now = playAudioCtx.currentTime;
-    movementNodes.gain.gain.setTargetAtTime(0.0001 + energy * 0.1, now, 0.05);
-    movementNodes.filter.frequency.setTargetAtTime(150 + energy * 2400, now, 0.08);
-    if (Math.abs(energy - movementNodes.lastCurveAmount) > 0.04) {
-      movementNodes.shaper.curve = makeDistortionCurve(energy);
-      movementNodes.lastCurveAmount = energy;
+    // distorsión aleatoria: no siempre, y más probable/intensa cuanto más brusco
+    if (Math.random() < 0.2 + clamped * 0.55) {
+      const shaper = playAudioCtx.createWaveShaper();
+      shaper.curve = makeDistortionCurve(0.08 + Math.random() * (0.3 + clamped * 0.55));
+      shaper.oversample = '2x';
+      tail.connect(shaper);
+      tail = shaper;
     }
+    tail.connect(gain);
+
+    const toDry = playAudioCtx.createGain();
+    toDry.gain.value = 0.55 + Math.random() * 0.25;
+    const toDelay = playAudioCtx.createGain();
+    toDelay.gain.value = 0.3 + Math.random() * 0.3 + clamped * 0.2;
+    const toReverb = playAudioCtx.createGain();
+    toReverb.gain.value = 0.32 + Math.random() * 0.22;
+    gain.connect(toDry); gain.connect(toDelay); gain.connect(toReverb);
+    toDry.connect(dryBus); toDelay.connect(delaySend); toReverb.connect(reverbSend);
+
+    noise.start(now);
+    noise.stop(now + dur + 0.05);
   }
 
-  function stopMovementLayer() {
-    if (!movementNodes) return;
-    const nodes = movementNodes;
-    movementNodes = null;
-    rampGain(nodes.gain.gain, 0.0001, 0.4);
-    setTimeout(() => { try { nodes.noise.stop(); } catch (err) {} }, 500);
-  }
+  /* ---- Capa 4: toque — dos resonadores excitados por el mismo
+     impulso de ruido (como golpear un cuerpo con varios modos
+     propios), afinados a una proporción aleatoria sobre la
+     fundamental del drone: nunca suena exactamente igual dos veces.
+     Nada de seno con caída de tono + golpe de ruido grave (esa
+     combinación es, literalmente, la receta clásica de un kick).
+     Se reparte entre seco, delay (deja eco) y reverb, con una mezcla
+     que también varía en cada toque. Arrastrar activa aparte una
+     corriente continua (ver startDragSound/updateDragSound).
 
-  /* ---- Capa 4: toque — gota grave y densa; arrastre = corriente ---- */
+     Nota técnica: la primera versión usaba Q muy alta (16-40) sobre
+     una excitación de solo 60ms — eso hace un filtro tan angosto que
+     casi no le da tiempo a "prender", y terminaba sonando casi mudo
+     en el parlante de un teléfono. Aquí la Q es más moderada, la
+     excitación más larga, y las frecuencias suben lo suficiente para
+     que el parlante del celular las reproduzca (por debajo de ~150Hz
+     la mayoría de los parlantes de teléfono casi no emiten nada). ---- */
   function playWaterDrop(intensity = 1, x = 0, y = 0) {
     if (!playAudioCtx) return;
     if (playAudioCtx.state === 'suspended') playAudioCtx.resume().catch(() => {});
     const now = playAudioCtx.currentTime;
     const clamped = Math.min(2, Math.max(0.25, intensity));
 
-    const osc = playAudioCtx.createOscillator();
-    osc.type = 'sine';
-    const startFreq = 100 + clamped * 55; // desciende hacia el registro del drone (A1)
-    osc.frequency.setValueAtTime(startFreq, now);
-    osc.frequency.exponentialRampToValueAtTime(40, now + 0.36);
-    const oscGain = playAudioCtx.createGain();
-    oscGain.gain.setValueAtTime(0.0001, now);
-    oscGain.gain.exponentialRampToValueAtTime(0.15 + clamped * 0.07, now + 0.012);
-    oscGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.44);
-    osc.connect(oscGain);
-    connectToBuses(oscGain, 0.8, 0.55);
+    const root = 55; // A1, mismo centro tonal que el drone
+    const ratios = [1, 9 / 8, 6 / 5, 4 / 3, 3 / 2, 8 / 5, 9 / 5]; // proporciones simples, "modales"
+    const ratio = ratios[Math.floor(Math.random() * ratios.length)];
+    const detune = 1 + (Math.random() - 0.5) * 0.025; // pequeña variación de afinación cada vez
 
-    const noise = playAudioCtx.createBufferSource();
-    noise.buffer = createNoiseBuffer(0.5);
-    const noiseFilter = playAudioCtx.createBiquadFilter();
-    noiseFilter.type = 'lowpass';
-    noiseFilter.frequency.value = 240;
-    const noiseGain = playAudioCtx.createGain();
-    noiseGain.gain.setValueAtTime(0.0001, now);
-    noiseGain.gain.exponentialRampToValueAtTime(0.045 + clamped * 0.045, now + 0.01);
-    noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
-    noise.connect(noiseFilter);
-    noiseFilter.connect(noiseGain);
-    connectToBuses(noiseGain, 0.7, 0.55);
+    const impulse = playAudioCtx.createBufferSource();
+    impulse.buffer = createNoiseBuffer(0.14);
 
-    osc.start(now); osc.stop(now + 0.46);
-    noise.start(now); noise.stop(now + 0.22);
+    // modo agudo: la "identidad" del toque, breve y resonante
+    const pingFreq = root * ratio * detune * (4 + Math.floor(Math.random() * 2)); // 4-5 octavas: audible en parlante chico
+    const pingFilter = playAudioCtx.createBiquadFilter();
+    pingFilter.type = 'bandpass';
+    pingFilter.frequency.value = pingFreq;
+    pingFilter.Q.value = 4 + Math.random() * 7;
+    const pingDecay = 0.32 + Math.random() * 0.45;
+    const pingGain = playAudioCtx.createGain();
+    pingGain.gain.setValueAtTime(0.0001, now);
+    pingGain.gain.exponentialRampToValueAtTime(0.34 + clamped * 0.16, now + 0.008);
+    pingGain.gain.exponentialRampToValueAtTime(0.0001, now + pingDecay);
+
+    // modo grave: cuerpo/densidad, más discreto y algo más largo, pero
+    // todavía dentro de lo que un parlante de celular puede reproducir
+    const bodyFreq = root * ratio * detune * 2;
+    const bodyFilter = playAudioCtx.createBiquadFilter();
+    bodyFilter.type = 'bandpass';
+    bodyFilter.frequency.value = bodyFreq;
+    bodyFilter.Q.value = 2.5 + Math.random() * 4;
+    const bodyDecay = pingDecay + 0.22 + Math.random() * 0.35;
+    const bodyGain = playAudioCtx.createGain();
+    bodyGain.gain.setValueAtTime(0.0001, now);
+    bodyGain.gain.exponentialRampToValueAtTime(0.22 + clamped * 0.1, now + 0.012);
+    bodyGain.gain.exponentialRampToValueAtTime(0.0001, now + bodyDecay);
+
+    impulse.connect(pingFilter);
+    impulse.connect(bodyFilter);
+    pingFilter.connect(pingGain);
+    bodyFilter.connect(bodyGain);
+
+    const mix = playAudioCtx.createGain();
+    pingGain.connect(mix);
+    bodyGain.connect(mix);
+
+    // distorsión aleatoria ocasional: le da variedad tímbrica de un toque a otro
+    let tail = mix;
+    if (Math.random() < 0.3) {
+      const shaper = playAudioCtx.createWaveShaper();
+      shaper.curve = makeDistortionCurve(0.12 + Math.random() * 0.3);
+      tail.connect(shaper);
+      tail = shaper;
+    }
+
+    const toDry = playAudioCtx.createGain();
+    toDry.gain.value = 0.6 + Math.random() * 0.2;
+    const toDelay = playAudioCtx.createGain();
+    toDelay.gain.value = 0.35 + Math.random() * 0.3;
+    const toReverb = playAudioCtx.createGain();
+    toReverb.gain.value = 0.32 + Math.random() * 0.2;
+    tail.connect(toDry); tail.connect(toDelay); tail.connect(toReverb);
+    toDry.connect(dryBus); toDelay.connect(delaySend); toReverb.connect(reverbSend);
+
+    impulse.start(now);
+    impulse.stop(now + 0.16);
   }
 
   function startDragSound(pointerId) {
@@ -1069,7 +1227,7 @@
 
     const filter = playAudioCtx.createBiquadFilter();
     filter.type = 'lowpass';
-    filter.frequency.value = 130;
+    filter.frequency.value = 190;
     filter.Q.value = 0.7;
 
     const gain = playAudioCtx.createGain();
@@ -1077,7 +1235,7 @@
 
     noise.connect(filter);
     filter.connect(gain);
-    const buses = connectToBuses(gain, 0.6, 0.6);
+    const buses = connectToBuses(gain, 0.7, 0.6);
     noise.start();
 
     dragAudioNodes.set(pointerId, { noise, filter, gain, buses, lastX: null, lastY: null });
@@ -1090,8 +1248,8 @@
     let speed = 0;
     if (nodes.lastX !== null) speed = Math.hypot(x - nodes.lastX, y - nodes.lastY);
     nodes.lastX = x; nodes.lastY = y;
-    const targetGain = Math.min(0.1, 0.015 + speed * 0.0028);
-    const targetFreq = 120 + Math.min(1, speed / 45) * 340; // agua densa: se mantiene grave incluso rápido
+    const targetGain = Math.min(0.16, 0.03 + speed * 0.0035);
+    const targetFreq = 190 + Math.min(1, speed / 45) * 420; // agua densa: se mantiene grave incluso rápido
     nodes.gain.gain.setTargetAtTime(targetGain, now, 0.07);
     nodes.filter.frequency.setTargetAtTime(targetFreq, now, 0.1);
   }
@@ -1108,9 +1266,9 @@
     if (!playAudioCtx) return;
     if (playAudioCtx.state === 'suspended') playAudioCtx.resume().catch(() => {});
     rampGain(masterGain.gain, 0.9, 0.6);
+    if (delayFeedback) rampGain(delayFeedback.gain, 0.42, 0.6); // por si quedó "tenso" de una sesión anterior
     startDrone();
     startMarineBed();
-    startMovementLayer();
   }
 
   function fadeAudioOutAndStop() {
@@ -1120,7 +1278,6 @@
     setTimeout(() => {
       stopDrone();
       stopMarineBed();
-      stopMovementLayer();
     }, 200);
   }
 
@@ -1237,7 +1394,8 @@
           vx: 0,
           vy: 0,
           phase: Math.random() * Math.PI * 2,
-          size: rect.height || 16
+          size: rect.height || 16,
+          spawnedAt: performance.now() - SPAWN_INTRO_MS - 1 // ya "vieja": aparece de inmediato, sin transición
         });
       });
     }
@@ -1250,6 +1408,115 @@
     if (!overlay) return;
     overlay.querySelectorAll('.game-letter').forEach(el => el.remove());
     playLetters = [];
+  }
+
+  /* ================================================================
+     APARICIÓN PROGRESIVA — el toque y la sacudida van dispersando las
+     letras originales y dejan huecos visibles; esto suelta letras
+     nuevas con el tiempo en posiciones y tamaños aleatorios, con una
+     transición de tamaño + opacidad en vez de aparecer de golpe. Los
+     caracteres se toman de las letras que ya existen, así que siguen
+     siendo parte del mismo texto, no relleno inventado.
+
+     Dos señales aceleran la aparición y guían dónde: (1) qué tan
+     "vacía" está la pantalla ahora mismo (se divide en una grilla y
+     se cuentan letras por celda), y (2) qué tan intenso fue el
+     movimiento reciente (movementEnergy). Cuanto más vacío o más
+     intenso el movimiento, más rápido y más letras por tanda —y se
+     prioriza soltarlas justo en las celdas más vacías.
+  ================================================================ */
+  function computeLetterDensity() {
+    const cols = 5, rows = 5;
+    const width = window.innerWidth || 1;
+    const height = window.innerHeight || 1;
+    const cellW = width / cols;
+    const cellH = height / rows;
+    const counts = new Array(cols * rows).fill(0);
+    playLetters.forEach((letter) => {
+      const cx = Math.min(cols - 1, Math.max(0, Math.floor(letter.x / cellW)));
+      const cy = Math.min(rows - 1, Math.max(0, Math.floor(letter.y / cellH)));
+      counts[cy * cols + cx] += 1;
+    });
+    const avg = playLetters.length / (cols * rows);
+    const emptyCells = [];
+    counts.forEach((c, i) => { if (c < avg * 0.45) emptyCells.push(i); });
+    return { cols, rows, cellW, cellH, emptyCells, emptyRatio: emptyCells.length / (cols * rows) };
+  }
+
+  function spawnPlayLetters(count = 1, zoneHint = null) {
+    if (!playModeActive || !playLetters.length || spawnBudget <= 0) return;
+    const overlay = document.getElementById('play-overlay');
+    if (!overlay) return;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const toSpawn = Math.min(count, spawnBudget);
+    const zone = zoneHint || computeLetterDensity();
+
+    for (let i = 0; i < toSpawn; i++) {
+      const template = playLetters[Math.floor(Math.random() * playLetters.length)];
+      if (!template) break;
+      const char = template.el.textContent;
+      const baseSize = template.size || 16;
+      const size = Math.max(9, baseSize * (0.55 + Math.random() * 1.35)); // tamaños variados
+
+      let x, y;
+      if (zone.emptyCells.length && Math.random() < 0.75) {
+        // prioriza rellenar una celda vacía en vez de tirar todo al azar
+        const cellIndex = zone.emptyCells[Math.floor(Math.random() * zone.emptyCells.length)];
+        const cx = cellIndex % zone.cols;
+        const cy = Math.floor(cellIndex / zone.cols);
+        x = cx * zone.cellW + Math.random() * Math.max(1, zone.cellW - size);
+        y = cy * zone.cellH + Math.random() * Math.max(1, zone.cellH - size);
+      } else {
+        x = 8 + Math.random() * Math.max(1, width - size - 16);
+        y = 8 + Math.random() * Math.max(1, height - size - 16);
+      }
+      x = Math.max(4, Math.min(width - size - 4, x));
+      y = Math.max(4, Math.min(height - size - 4, y));
+
+      const el = document.createElement('span');
+      el.className = 'game-letter';
+      el.textContent = char;
+      el.style.left = x + 'px';
+      el.style.top = y + 'px';
+      el.style.fontSize = size + 'px';
+      el.style.opacity = '0';
+      overlay.appendChild(el);
+
+      playLetters.push({
+        el,
+        x, y,
+        baseX: x, baseY: y,
+        vx: (Math.random() - 0.5) * 1.2,
+        vy: (Math.random() - 0.5) * 1.2,
+        phase: Math.random() * Math.PI * 2,
+        size,
+        spawnedAt: performance.now()
+      });
+      spawnBudget -= 1;
+    }
+  }
+
+  function scheduleNextSpawn() {
+    if (!playModeActive || spawnBudget <= 0) return;
+    const zone = computeLetterDensity();
+    // 0 = pantalla llena y quieta, 1 = muy vacía y/o se acaba de agitar fuerte
+    const urgency = Math.min(1, zone.emptyRatio * 0.75 + movementEnergy * 0.6);
+    const baseDelay = 950 + Math.random() * 650;
+    const delay = Math.max(140, baseDelay * (1 - urgency * 0.82));
+    spawnTimer = setTimeout(() => {
+      const freshZone = computeLetterDensity();
+      const freshUrgency = Math.min(1, freshZone.emptyRatio * 0.75 + movementEnergy * 0.6);
+      const count = freshUrgency > 0.6 ? (Math.random() < 0.5 ? 3 : 4)
+                  : freshUrgency > 0.3 ? (Math.random() < 0.5 ? 2 : 3)
+                  : (Math.random() < 0.5 ? 1 : 2);
+      spawnPlayLetters(count, freshZone);
+      scheduleNextSpawn();
+    }, delay);
+  }
+
+  function stopSpawning() {
+    if (spawnTimer) { clearTimeout(spawnTimer); spawnTimer = null; }
   }
 
   /* ================================================================
@@ -1268,6 +1535,7 @@
     const width = window.innerWidth;
     const height = window.innerHeight;
     const time = performance.now() / 1000;
+    const nowMs = performance.now();
 
     // la corriente de arrastre de cada dedo se va apagando sola si el dedo se detiene
     playPointers.forEach((pointer) => {
@@ -1313,14 +1581,29 @@
       // vaivén decorativo: no mueve la posición real, solo la hace "respirar"
       const swayX = Math.sin(time * 0.7 + letter.phase) * 0.6;
       const swayY = Math.cos(time * 0.62 + letter.phase * 1.16) * 0.5;
-      letter.el.style.transform = `translate(${letter.x - letter.baseX + swayX}px, ${letter.y - letter.baseY + swayY}px)`;
+
+      // transición de aparición: crece y se hace opaca; las letras originales
+      // ya "nacieron viejas" (ver createPlayLetters), así que no la notan
+      const introT = Math.min(1, Math.max(0, (nowMs - letter.spawnedAt) / SPAWN_INTRO_MS));
+      const introEase = introT * introT * (3 - 2 * introT); // smoothstep
+      const scale = 0.4 + introEase * 0.6;
+      letter.el.style.opacity = String(0.92 * introEase);
+      letter.el.style.transform = `translate(${letter.x - letter.baseX + swayX}px, ${letter.y - letter.baseY + swayY}px) scale(${scale})`;
     });
 
-    if (movementEnergy > 0.001) {
-      updateMovementLayer(movementEnergy);
-      movementEnergy *= 0.9;
-    } else if (movementNodes) {
-      updateMovementLayer(0);
+    // "tensión" de fondo: una sacudida sostenida abre un poco el fondo marino
+    // y la realimentación del delay, y se disuelve sola cuando el movimiento cesa
+    if (playAudioCtx) {
+      const now = playAudioCtx.currentTime;
+      if (movementEnergy > 0.001) {
+        if (delayFeedback) delayFeedback.gain.setTargetAtTime(0.42 + movementEnergy * 0.22, now, 0.4);
+        if (marineNodes) marineNodes.filter.frequency.setTargetAtTime(200 + movementEnergy * 260, now, 0.3);
+        movementEnergy *= 0.965; // se disuelve más lento que el impulso físico: "resonancia" que perdura
+      } else {
+        if (delayFeedback) delayFeedback.gain.setTargetAtTime(0.42, now, 0.6);
+        if (marineNodes) marineNodes.filter.frequency.setTargetAtTime(200, now, 0.6);
+      }
+      updateDroneForLetterCount(playLetters.length);
     }
 
     playFrame = requestAnimationFrame(updatePlayScene);
@@ -1344,7 +1627,10 @@
 
   /* Movimiento real del dispositivo — impulso proporcional a la sacudida,
      en la dirección del movimiento (con leve variación por letra para que
-     se vea como algo que se dispersa, no como un bloque rígido) */
+     se vea como algo que se dispersa, no como un bloque rígido). También
+     dispara granos sonoros (con un pequeño espaciado aleatorio, para que
+     una sacudida sostenida no sature) y, si el movimiento es notorio,
+     suelta alguna letra extra para llenar los huecos que deja */
   function applyMovementForce(dax, day, jerk) {
     if (!playLetters.length) return;
     const forceX = dax * JERK_TO_FORCE;
@@ -1356,7 +1642,27 @@
       letter.vx += (forceX * cos - forceY * sin) * jitterScale;
       letter.vy += (forceX * sin + forceY * cos) * jitterScale;
     });
-    movementEnergy = Math.min(1, Math.max(movementEnergy, jerk / JERK_TO_ENERGY));
+
+    const clampedEnergy = Math.min(1, jerk / JERK_TO_ENERGY);
+    movementEnergy = Math.min(1, Math.max(movementEnergy, clampedEnergy));
+
+    const nowMs = performance.now();
+    const minGap = 55 + Math.random() * 40; // espaciado con variación, para que no sea mecánico
+    if (nowMs - lastGrainAt > minGap) {
+      lastGrainAt = nowMs;
+      triggerMovementGrain(clampedEnergy);
+    }
+
+    // cuanto más brusco el movimiento, más probable (y más numeroso) el
+    // refuerzo de letras — y además adelanta la próxima tanda programada
+    if (jerk > JERK_DEADZONE * 2 && Math.random() < 0.25 + clampedEnergy * 0.55) {
+      const burst = 1 + Math.round(clampedEnergy * 2.4);
+      spawnPlayLetters(burst);
+      if (spawnTimer && Math.random() < 0.6) {
+        stopSpawning();
+        scheduleNextSpawn();
+      }
+    }
   }
 
   function togglePlayMode() {
@@ -1407,6 +1713,8 @@
         (el).style.opacity = '0.04';
       });
       playLetters = createPlayLetters();
+      spawnBudget = EXTRA_LETTER_BUDGET;
+      scheduleNextSpawn();
       playFrame = requestAnimationFrame(updatePlayScene);
       enablePlayMotionInput();
       initPlayAudio();
@@ -1431,6 +1739,7 @@
       if (playHintTimer) clearTimeout(playHintTimer);
       playHintTimer = null;
       playPointers.clear();
+      stopSpawning();
       if (playFrame) cancelAnimationFrame(playFrame);
       playFrame = null;
       clearPlayLetters();
