@@ -667,6 +667,7 @@
   /* ---- Play Mode: aparición progresiva de letras ---- */
   let spawnBudget = 0;
   let spawnTimer = null;
+  let initialLetterCount = 0;          // cuántas letras había al entrar; el drone "crece" relativo a esto, no a un número fijo
   const EXTRA_LETTER_BUDGET = 220;     // cuántas letras extra puede soltar una sesión de Play Mode
   const SPAWN_INTRO_MS = 480;          // duración de la transición de aparición (tamaño + opacidad)
 
@@ -677,7 +678,9 @@
   let playTilt = { x: 0, y: 0 };
   let lastAcceleration = null;
   let movementEnergy = 0;          // 0-1, decae solo: "tensión" que sube con la sacudida y se disuelve
+  let letterKinetic = 0;           // 0-1, suavizado: qué tan agitado está el enjambre de letras AHORA MISMO
   let lastGrainAt = 0;
+  let lastMelodyAt = 0;
   const JERK_DEADZONE = 1.1;       // ignora el ruido normal de sostener el teléfono
   const JERK_TO_FORCE = 0.5;       // cuánta fuerza física recibe cada letra por unidad de sacudida
   const JERK_TO_ENERGY = 22;       // cuánta sacudida hace falta para energía máxima
@@ -697,6 +700,12 @@
   let delayFilter = null;
   let delayFeedback = null;
   let delayLfo = null;
+  let brightDelaySend = null;
+  let brightDelayNode = null;
+  let brightDelayFilter = null;
+  let brightDelayFeedback = null;
+  let brightDelayLfo = null;
+  let melodyStepIndex = 0;
   let droneNodes = null;
   let marineNodes = null;
   const dragAudioNodes = new Map(); // pointerId -> nodos de sonido de arrastre
@@ -935,25 +944,65 @@
     delayLfo.connect(delayLfoGain);
     delayLfoGain.connect(delayNode.delayTime);
     delayLfo.start();
+
+    // Bus de delay BRILLANTE, separado del anterior: tiempo más corto y más
+    // realimentación, pensado para que una sola nota aguda del toque se
+    // convierta en una pequeña cascada de ecos — la "melodía" la arma el
+    // delay repitiendo y solapando notas, no un instrumento tocando solo.
+    brightDelaySend = playAudioCtx.createGain();
+    brightDelaySend.gain.value = 1;
+    brightDelayNode = playAudioCtx.createDelay(1.2);
+    brightDelayNode.delayTime.value = 0.21;
+    brightDelayFilter = playAudioCtx.createBiquadFilter();
+    brightDelayFilter.type = 'bandpass'; // brillante pero sin llegar a áspero
+    brightDelayFilter.frequency.value = 1500;
+    brightDelayFilter.Q.value = 0.9;
+    brightDelayFeedback = playAudioCtx.createGain();
+    brightDelayFeedback.gain.value = 0.56; // varias repeticiones: arma la "frase" solo
+    const brightDelayReturn = playAudioCtx.createGain();
+    brightDelayReturn.gain.value = 0.5;
+
+    brightDelaySend.connect(brightDelayNode);
+    brightDelayNode.connect(brightDelayFilter);
+    brightDelayFilter.connect(brightDelayFeedback);
+    brightDelayFeedback.connect(brightDelayNode);
+    brightDelayFilter.connect(brightDelayReturn);
+    brightDelayReturn.connect(masterGain);
+    brightDelayReturn.connect(reverbSend);
+
+    brightDelayLfo = playAudioCtx.createOscillator();
+    brightDelayLfo.frequency.value = 0.045;
+    const brightDelayLfoGain = playAudioCtx.createGain();
+    brightDelayLfoGain.gain.value = 0.02; // +-20ms: apenas se nota, evita que suene mecánico
+    brightDelayLfo.connect(brightDelayLfoGain);
+    brightDelayLfoGain.connect(brightDelayNode.delayTime);
+    brightDelayLfo.start();
   }
 
-  /* ---- Capa 1: drone grave de fondo, mayormente reverb ---- */
   /* ---- Capa 1: drone de fondo — ya no son 3 osciladores fijos.
      Hay 6 parciales posibles sobre la fundamental (proporciones simples:
      1, 1.5, 2, 3, 4, 6 — un armónico "modal", nunca disonante). Los dos
-     primeros (fundamental y quinta) están siempre presentes; los otros
-     cuatro van entrando de a poco según cuántas letras hay en pantalla
-     — así el drone literalmente se vuelve más rico/denso a medida que
-     el Play Mode se llena. Además, cada 14-26s el color del filtro (y
-     el detune de algunos parciales) deriva lentamente a un nuevo punto,
-     para que también evolucione con el tiempo aunque nadie lo toque. ---- */
+     primeros (fundamental y quinta) están siempre presentes desde el
+     primer instante (piso fijo, no dependen de nada). Los otros cuatro
+     parciales "despiertan" por DOS vías a la vez:
+       (a) crecimiento de la sesión: relativo a cuántas letras EXTRA se
+           soltaron respecto al presupuesto (no un conteo absoluto —
+           esa era la falla: con el conteo real de una página, los
+           umbrales viejos ya estaban saturados desde el primer frame),
+       (b) energía cinética real del enjambre de letras, medida cuadro
+           a cuadro (promedio de la velocidad de todas las letras) — si
+           tocás o sacudís y las letras se agitan, el drone se abre y
+           se vuelve más rico EN EL MOMENTO; cuando se calman, se repliega.
+     Además, cada 14-26s el color del filtro (y el detune de algunos
+     parciales) deriva a un nuevo punto, para que evolucione con el
+     tiempo incluso sin que nadie lo toque. ---- */
   const DRONE_PARTIALS = [
-    { ratio: 1,   type: 'sine',     threshold: 0,   range: 1,  level: 0.05 },  // fundamental: siempre
-    { ratio: 1.5, type: 'triangle', threshold: 0,   range: 1,  level: 0.042 }, // quinta: siempre
-    { ratio: 2,   type: 'triangle', threshold: 15,  range: 55, level: 0.032 },
-    { ratio: 3,   type: 'sine',     threshold: 55,  range: 70, level: 0.026 },
-    { ratio: 4,   type: 'triangle', threshold: 110, range: 80, level: 0.022 },
-    { ratio: 6,   type: 'sine',     threshold: 175, range: 90, level: 0.018 }
+    { ratio: 1,   type: 'sine',     floor: 1, gateStart: 0,    gateRange: 1,    kineticWeight: 0,    level: 0.075 }, // fundamental: siempre, desde el primer instante
+    { ratio: 1.5, type: 'triangle', floor: 1, gateStart: 0,    gateRange: 1,    kineticWeight: 0,    level: 0.062 }, // quinta: siempre, desde el primer instante
+    { ratio: 2,   type: 'triangle', floor: 0, gateStart: 0.05, gateRange: 0.3,  kineticWeight: 0.55, level: 0.05 },
+    { ratio: 3,   type: 'sine',     floor: 0, gateStart: 0.2,  gateRange: 0.35, kineticWeight: 0.7,  level: 0.042 },
+    { ratio: 4,   type: 'triangle', floor: 0, gateStart: 0.4,  gateRange: 0.4,  kineticWeight: 0.85, level: 0.036 },
+    { ratio: 6,   type: 'sine',     floor: 0, gateStart: 0.65, gateRange: 0.4,  kineticWeight: 1,    level: 0.03 }
   ];
 
   function startDrone() {
@@ -962,12 +1011,12 @@
 
     const filter = playAudioCtx.createBiquadFilter();
     filter.type = 'lowpass';
-    filter.frequency.value = 300;
+    filter.frequency.value = 320;
 
     const filterLfo = playAudioCtx.createOscillator();
     filterLfo.frequency.value = 0.05; // respiración rápida (~20s), constante
     const filterLfoGain = playAudioCtx.createGain();
-    filterLfoGain.gain.value = 45;
+    filterLfoGain.gain.value = 55;
     filterLfo.connect(filterLfoGain);
     filterLfoGain.connect(filter.frequency);
     filterLfo.start();
@@ -988,21 +1037,29 @@
     const masterDroneGain = playAudioCtx.createGain();
     masterDroneGain.gain.value = 0.0001;
     filter.connect(masterDroneGain);
-    const buses = connectToBuses(masterDroneGain, 0.14, 0.9); // "ligero" y mayormente reverb larga
+    const buses = connectToBuses(masterDroneGain, 0.34, 0.8); // más presencia directa que antes, sigue con mucha reverb
     rampGain(masterDroneGain.gain, 1, 3.2); // el nivel real lo da cada parcial; esto es solo el fundido de entrada
 
     droneNodes = { partials, filter, filterLfo, filterLfoGain, gain: masterDroneGain, buses, wanderTimer: null };
-    updateDroneForLetterCount(playLetters.length);
+    updateDroneMotion(0, 0);
     scheduleDroneWander();
   }
 
-  function updateDroneForLetterCount(count) {
+  /* kinetic: 0-1, energía cinética suavizada del enjambre AHORA MISMO.
+     growth: 0-1, cuánto ha crecido la sesión respecto al presupuesto
+     de letras extra. Cada parcial usa el que le dé un valor más alto,
+     así que basta con UNA de las dos señales para despertarlo. */
+  function updateDroneMotion(kinetic, growth) {
     if (!droneNodes || !playAudioCtx) return;
     const now = playAudioCtx.currentTime;
     droneNodes.partials.forEach((p) => {
-      const proportion = Math.min(1, Math.max(0, (count - p.threshold) / p.range));
-      p.gain.gain.setTargetAtTime(0.0001 + proportion * p.level, now, 1.6); // cambio lento, nunca brusco
+      const growthGate = Math.min(1, Math.max(0, (growth - p.gateStart) / p.gateRange));
+      const motionGate = Math.min(1, kinetic * (0.9 + p.kineticWeight));
+      const proportion = Math.max(p.floor, growthGate, motionGate);
+      p.gain.gain.setTargetAtTime(0.0001 + proportion * p.level, now, 0.55);
     });
+    // el filtro también se abre con la energía cinética: más agitación, drone más brillante
+    droneNodes.filter.frequency.setTargetAtTime(300 + kinetic * 950, now, 0.4);
   }
 
   function scheduleDroneWander() {
@@ -1011,10 +1068,10 @@
     droneNodes.wanderTimer = setTimeout(() => {
       if (!droneNodes || !playAudioCtx || !playModeActive) return;
       const now = playAudioCtx.currentTime;
-      const targetCutoff = 220 + Math.random() * 480; // nuevo "color" tímbrico del drone
+      const targetCutoff = 240 + Math.random() * 520; // nuevo "color" tímbrico del drone
       droneNodes.filter.frequency.setTargetAtTime(targetCutoff, now, 5 + Math.random() * 4);
       droneNodes.partials.forEach((p) => {
-        if (Math.random() < 0.5) p.osc.detune.setTargetAtTime((Math.random() - 0.5) * 14, now, 6);
+        if (Math.random() < 0.5) p.osc.detune.setTargetAtTime((Math.random() - 0.5) * 16, now, 6);
       });
       scheduleDroneWander();
     }, delay);
@@ -1087,49 +1144,58 @@
      no solo el gesto puntual. */
   function triggerMovementGrain(energy) {
     if (!playAudioCtx) return;
-    const now = playAudioCtx.currentTime;
-    const clamped = Math.min(1, Math.max(0, energy));
+    try {
+      const now = playAudioCtx.currentTime;
+      const clamped = Math.min(1, Math.max(0, energy));
 
-    const noise = playAudioCtx.createBufferSource();
-    noise.buffer = createNoiseBuffer(0.5);
+      const noise = playAudioCtx.createBufferSource();
+      noise.buffer = createNoiseBuffer(0.5);
 
-    const filter = playAudioCtx.createBiquadFilter();
-    filter.type = Math.random() < 0.5 ? 'bandpass' : 'lowpass';
-    const baseCutoff = 160 + Math.random() * 320;
-    filter.frequency.value = baseCutoff + clamped * (700 + Math.random() * 900);
-    filter.Q.value = 0.6 + Math.random() * (1.2 + clamped * 2);
+      const filter = playAudioCtx.createBiquadFilter();
+      filter.type = Math.random() < 0.5 ? 'bandpass' : 'lowpass';
+      const baseCutoff = 160 + Math.random() * 320;
+      filter.frequency.value = baseCutoff + clamped * (700 + Math.random() * 900);
+      filter.Q.value = 0.6 + Math.random() * (1.2 + clamped * 2);
 
-    const gain = playAudioCtx.createGain();
-    const dur = 0.16 + Math.random() * 0.5 + clamped * 0.3;
-    const peak = 0.05 + clamped * 0.16 + Math.random() * 0.03;
-    gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(peak, now + 0.015 + Math.random() * 0.03);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+      const gain = playAudioCtx.createGain();
+      const dur = 0.16 + Math.random() * 0.5 + clamped * 0.3;
+      const peak = 0.05 + clamped * 0.16 + Math.random() * 0.03;
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(peak, now + 0.015 + Math.random() * 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
 
-    noise.connect(filter);
-    let tail = filter;
+      noise.connect(filter);
+      let tail = filter;
 
-    // distorsión aleatoria: no siempre, y más probable/intensa cuanto más brusco
-    if (Math.random() < 0.2 + clamped * 0.55) {
-      const shaper = playAudioCtx.createWaveShaper();
-      shaper.curve = makeDistortionCurve(0.08 + Math.random() * (0.3 + clamped * 0.55));
-      shaper.oversample = '2x';
-      tail.connect(shaper);
-      tail = shaper;
+      // distorsión aleatoria: no siempre, y más probable/intensa cuanto más brusco.
+      // Si por lo que sea falla (curva rechazada, etc.), seguimos sin distorsión
+      // en vez de perder el grano entero — antes una excepción acá abortaba
+      // la función completa y el noise.start() de más abajo nunca se ejecutaba.
+      if (Math.random() < 0.2 + clamped * 0.55) {
+        try {
+          const shaper = playAudioCtx.createWaveShaper();
+          shaper.curve = makeDistortionCurve(0.08 + Math.random() * (0.3 + clamped * 0.55));
+          shaper.oversample = '2x';
+          tail.connect(shaper);
+          tail = shaper;
+        } catch (err) { /* seguimos sin distorsión */ }
+      }
+      tail.connect(gain);
+
+      const toDry = playAudioCtx.createGain();
+      toDry.gain.value = 0.55 + Math.random() * 0.25;
+      const toDelay = playAudioCtx.createGain();
+      toDelay.gain.value = 0.3 + Math.random() * 0.3 + clamped * 0.2;
+      const toReverb = playAudioCtx.createGain();
+      toReverb.gain.value = 0.32 + Math.random() * 0.22;
+      gain.connect(toDry); gain.connect(toDelay); gain.connect(toReverb);
+      toDry.connect(dryBus); toDelay.connect(delaySend); toReverb.connect(reverbSend);
+
+      noise.start(now);
+      noise.stop(now + dur + 0.05);
+    } catch (err) {
+      console.warn('triggerMovementGrain falló, se omite este grano:', err);
     }
-    tail.connect(gain);
-
-    const toDry = playAudioCtx.createGain();
-    toDry.gain.value = 0.55 + Math.random() * 0.25;
-    const toDelay = playAudioCtx.createGain();
-    toDelay.gain.value = 0.3 + Math.random() * 0.3 + clamped * 0.2;
-    const toReverb = playAudioCtx.createGain();
-    toReverb.gain.value = 0.32 + Math.random() * 0.22;
-    gain.connect(toDry); gain.connect(toDelay); gain.connect(toReverb);
-    toDry.connect(dryBus); toDelay.connect(delaySend); toReverb.connect(reverbSend);
-
-    noise.start(now);
-    noise.stop(now + dur + 0.05);
   }
 
   /* ---- Capa 4: toque — dos resonadores excitados por el mismo
@@ -1152,71 +1218,141 @@
   function playWaterDrop(intensity = 1, x = 0, y = 0) {
     if (!playAudioCtx) return;
     if (playAudioCtx.state === 'suspended') playAudioCtx.resume().catch(() => {});
-    const now = playAudioCtx.currentTime;
-    const clamped = Math.min(2, Math.max(0.25, intensity));
+    try {
+      const now = playAudioCtx.currentTime;
+      const clamped = Math.min(2, Math.max(0.25, intensity));
 
-    const root = 55; // A1, mismo centro tonal que el drone
-    const ratios = [1, 9 / 8, 6 / 5, 4 / 3, 3 / 2, 8 / 5, 9 / 5]; // proporciones simples, "modales"
-    const ratio = ratios[Math.floor(Math.random() * ratios.length)];
-    const detune = 1 + (Math.random() - 0.5) * 0.025; // pequeña variación de afinación cada vez
+      const root = 55; // A1, mismo centro tonal que el drone
+      const ratios = [1, 9 / 8, 6 / 5, 4 / 3, 3 / 2, 8 / 5, 9 / 5]; // proporciones simples, "modales"
+      const ratio = ratios[Math.floor(Math.random() * ratios.length)];
+      const detune = 1 + (Math.random() - 0.5) * 0.025; // pequeña variación de afinación cada vez
 
-    const impulse = playAudioCtx.createBufferSource();
-    impulse.buffer = createNoiseBuffer(0.14);
+      const impulse = playAudioCtx.createBufferSource();
+      impulse.buffer = createNoiseBuffer(0.14);
 
-    // modo agudo: la "identidad" del toque, breve y resonante
-    const pingFreq = root * ratio * detune * (4 + Math.floor(Math.random() * 2)); // 4-5 octavas: audible en parlante chico
-    const pingFilter = playAudioCtx.createBiquadFilter();
-    pingFilter.type = 'bandpass';
-    pingFilter.frequency.value = pingFreq;
-    pingFilter.Q.value = 4 + Math.random() * 7;
-    const pingDecay = 0.32 + Math.random() * 0.45;
-    const pingGain = playAudioCtx.createGain();
-    pingGain.gain.setValueAtTime(0.0001, now);
-    pingGain.gain.exponentialRampToValueAtTime(0.34 + clamped * 0.16, now + 0.008);
-    pingGain.gain.exponentialRampToValueAtTime(0.0001, now + pingDecay);
+      // modo agudo: la "identidad" del toque, breve y resonante
+      const pingFreq = root * ratio * detune * (4 + Math.floor(Math.random() * 2)); // 4-5 octavas: audible en parlante chico
+      const pingFilter = playAudioCtx.createBiquadFilter();
+      pingFilter.type = 'bandpass';
+      pingFilter.frequency.value = pingFreq;
+      pingFilter.Q.value = 4 + Math.random() * 7;
+      const pingDecay = 0.32 + Math.random() * 0.45;
+      const pingGain = playAudioCtx.createGain();
+      pingGain.gain.setValueAtTime(0.0001, now);
+      pingGain.gain.exponentialRampToValueAtTime(0.34 + clamped * 0.16, now + 0.008);
+      pingGain.gain.exponentialRampToValueAtTime(0.0001, now + pingDecay);
 
-    // modo grave: cuerpo/densidad, más discreto y algo más largo, pero
-    // todavía dentro de lo que un parlante de celular puede reproducir
-    const bodyFreq = root * ratio * detune * 2;
-    const bodyFilter = playAudioCtx.createBiquadFilter();
-    bodyFilter.type = 'bandpass';
-    bodyFilter.frequency.value = bodyFreq;
-    bodyFilter.Q.value = 2.5 + Math.random() * 4;
-    const bodyDecay = pingDecay + 0.22 + Math.random() * 0.35;
-    const bodyGain = playAudioCtx.createGain();
-    bodyGain.gain.setValueAtTime(0.0001, now);
-    bodyGain.gain.exponentialRampToValueAtTime(0.22 + clamped * 0.1, now + 0.012);
-    bodyGain.gain.exponentialRampToValueAtTime(0.0001, now + bodyDecay);
+      // modo grave: cuerpo/densidad, más discreto y algo más largo, pero
+      // todavía dentro de lo que un parlante de celular puede reproducir
+      const bodyFreq = root * ratio * detune * 2;
+      const bodyFilter = playAudioCtx.createBiquadFilter();
+      bodyFilter.type = 'bandpass';
+      bodyFilter.frequency.value = bodyFreq;
+      bodyFilter.Q.value = 2.5 + Math.random() * 4;
+      const bodyDecay = pingDecay + 0.22 + Math.random() * 0.35;
+      const bodyGain = playAudioCtx.createGain();
+      bodyGain.gain.setValueAtTime(0.0001, now);
+      bodyGain.gain.exponentialRampToValueAtTime(0.22 + clamped * 0.1, now + 0.012);
+      bodyGain.gain.exponentialRampToValueAtTime(0.0001, now + bodyDecay);
 
-    impulse.connect(pingFilter);
-    impulse.connect(bodyFilter);
-    pingFilter.connect(pingGain);
-    bodyFilter.connect(bodyGain);
+      impulse.connect(pingFilter);
+      impulse.connect(bodyFilter);
+      pingFilter.connect(pingGain);
+      bodyFilter.connect(bodyGain);
 
-    const mix = playAudioCtx.createGain();
-    pingGain.connect(mix);
-    bodyGain.connect(mix);
+      const mix = playAudioCtx.createGain();
+      pingGain.connect(mix);
+      bodyGain.connect(mix);
 
-    // distorsión aleatoria ocasional: le da variedad tímbrica de un toque a otro
-    let tail = mix;
-    if (Math.random() < 0.3) {
-      const shaper = playAudioCtx.createWaveShaper();
-      shaper.curve = makeDistortionCurve(0.12 + Math.random() * 0.3);
-      tail.connect(shaper);
-      tail = shaper;
+      // distorsión aleatoria ocasional: le da variedad tímbrica de un toque a otro.
+      // Blindado igual que en triggerMovementGrain: si falla, seguimos sin
+      // distorsión en vez de perder el toque completo.
+      let tail = mix;
+      if (Math.random() < 0.3) {
+        try {
+          const shaper = playAudioCtx.createWaveShaper();
+          shaper.curve = makeDistortionCurve(0.12 + Math.random() * 0.3);
+          tail.connect(shaper);
+          tail = shaper;
+        } catch (err) { /* seguimos sin distorsión */ }
+      }
+
+      const toDry = playAudioCtx.createGain();
+      toDry.gain.value = 0.6 + Math.random() * 0.2;
+      const toDelay = playAudioCtx.createGain();
+      toDelay.gain.value = 0.35 + Math.random() * 0.3;
+      const toReverb = playAudioCtx.createGain();
+      toReverb.gain.value = 0.32 + Math.random() * 0.2;
+      tail.connect(toDry); tail.connect(toDelay); tail.connect(toReverb);
+      toDry.connect(dryBus); toDelay.connect(delaySend); toReverb.connect(reverbSend);
+
+      impulse.start(now);
+      impulse.stop(now + 0.16);
+    } catch (err) {
+      console.warn('playWaterDrop falló, se omite este toque:', err);
     }
+  }
 
-    const toDry = playAudioCtx.createGain();
-    toDry.gain.value = 0.6 + Math.random() * 0.2;
-    const toDelay = playAudioCtx.createGain();
-    toDelay.gain.value = 0.35 + Math.random() * 0.3;
-    const toReverb = playAudioCtx.createGain();
-    toReverb.gain.value = 0.32 + Math.random() * 0.2;
-    tail.connect(toDry); tail.connect(toDelay); tail.connect(toReverb);
-    toDry.connect(dryBus); toDelay.connect(delaySend); toReverb.connect(reverbSend);
+  /* ---- Capa 5: melodía — un tono agudo por toque, elegido caminando
+     una escala modal (no saltando al azar cada vez, para que sucesivos
+     toques suenen como una frase, no como notas sueltas). La "melodía"
+     real la arma el bus de delay brillante: cada nota deja varios ecos
+     superpuestos que van formando el contorno. Un leve FM le da un
+     timbre más "cristal/agua" que un seno puro. También suena, con
+     menor probabilidad, en granos de movimiento intensos — así lo
+     agudo queda ligado tanto al toque como a la sacudida. ---- */
+  const MELODY_SCALE_RATIOS = [1, 9 / 8, 6 / 5, 4 / 3, 3 / 2, 5 / 3, 9 / 5, 2];
 
-    impulse.start(now);
-    impulse.stop(now + 0.16);
+  function playMelodyPing(intensity = 1) {
+    if (!playAudioCtx) return;
+    try {
+      const now = playAudioCtx.currentTime;
+      const clamped = Math.min(2, Math.max(0.25, intensity));
+
+      const root = 55;
+      // camina por la escala (paso de ±1 casi siempre, salto ocasional): da sensación de frase
+      const step = Math.random() < 0.7 ? (Math.random() < 0.5 ? 1 : -1) : Math.round((Math.random() - 0.5) * 5);
+      melodyStepIndex = ((melodyStepIndex + step) % MELODY_SCALE_RATIOS.length + MELODY_SCALE_RATIOS.length) % MELODY_SCALE_RATIOS.length;
+      const ratio = MELODY_SCALE_RATIOS[melodyStepIndex];
+      const octave = 8 + Math.floor(Math.random() * 3); // agudo de verdad: ~440Hz-1650Hz
+      const freq = root * ratio * octave;
+
+      const osc = playAudioCtx.createOscillator();
+      osc.type = Math.random() < 0.5 ? 'sine' : 'triangle';
+      osc.frequency.value = freq;
+
+      // FM sutil: le da un timbre de campana/cristal en vez de un pitido plano
+      const fm = playAudioCtx.createOscillator();
+      fm.frequency.value = freq * (1.5 + Math.random() * 0.8);
+      const fmGain = playAudioCtx.createGain();
+      fmGain.gain.value = freq * (0.12 + Math.random() * 0.18);
+      fm.connect(fmGain);
+      fmGain.connect(osc.frequency);
+      fm.start(now);
+
+      const gain = playAudioCtx.createGain();
+      const dur = 0.5 + Math.random() * 0.6;
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.075 + clamped * 0.045, now + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+      osc.connect(gain);
+
+      // vive sobre todo en el delay brillante: la nota sola es breve, la frase la arman los ecos
+      const toDry = playAudioCtx.createGain();
+      toDry.gain.value = 0.22 + Math.random() * 0.12;
+      const toBrightDelay = playAudioCtx.createGain();
+      toBrightDelay.gain.value = 0.55 + Math.random() * 0.25;
+      const toReverb = playAudioCtx.createGain();
+      toReverb.gain.value = 0.2 + Math.random() * 0.15;
+      gain.connect(toDry); gain.connect(toBrightDelay); gain.connect(toReverb);
+      toDry.connect(dryBus); toBrightDelay.connect(brightDelaySend); toReverb.connect(reverbSend);
+
+      osc.start(now);
+      osc.stop(now + dur + 0.05);
+      fm.stop(now + dur + 0.05);
+    } catch (err) {
+      console.warn('playMelodyPing falló, se omite esta nota:', err);
+    }
   }
 
   function startDragSound(pointerId) {
@@ -1543,6 +1679,8 @@
       pointer.dragVY *= 0.8;
     });
 
+    let kineticSum = 0; // energía cinética del enjambre en este cuadro: alimenta al drone
+
     playLetters.forEach((letter) => {
       const tiltX = playTilt.x * 0.0004;
       const tiltY = playTilt.y * 0.0004;
@@ -1577,6 +1715,7 @@
       letter.y += letter.vy;
       letter.x = Math.max(4, Math.min(width - letter.size, letter.x));
       letter.y = Math.max(4, Math.min(height - letter.size, letter.y));
+      kineticSum += Math.abs(letter.vx) + Math.abs(letter.vy);
 
       // vaivén decorativo: no mueve la posición real, solo la hace "respirar"
       const swayX = Math.sin(time * 0.7 + letter.phase) * 0.6;
@@ -1592,18 +1731,27 @@
     });
 
     // "tensión" de fondo: una sacudida sostenida abre un poco el fondo marino
-    // y la realimentación del delay, y se disuelve sola cuando el movimiento cesa
+    // y la realimentación de los dos delays, y se disuelve sola cuando el
+    // movimiento cesa. El drone, además, se alimenta cuadro a cuadro de la
+    // energía cinética REAL del enjambre (no solo de cuánto se agitó el
+    // sensor), así que responde también a toques/arrastres, no solo a shake.
     if (playAudioCtx) {
       const now = playAudioCtx.currentTime;
+      const kineticAvg = playLetters.length ? kineticSum / playLetters.length : 0;
+      letterKinetic += (Math.min(1, kineticAvg / 3.2) - letterKinetic) * 0.09; // suavizado (evita parpadeo)
+      const growthProportion = Math.min(1, Math.max(0, (playLetters.length - initialLetterCount) / EXTRA_LETTER_BUDGET));
+
       if (movementEnergy > 0.001) {
         if (delayFeedback) delayFeedback.gain.setTargetAtTime(0.42 + movementEnergy * 0.22, now, 0.4);
+        if (brightDelayFeedback) brightDelayFeedback.gain.setTargetAtTime(0.56 + movementEnergy * 0.16, now, 0.4);
         if (marineNodes) marineNodes.filter.frequency.setTargetAtTime(200 + movementEnergy * 260, now, 0.3);
         movementEnergy *= 0.965; // se disuelve más lento que el impulso físico: "resonancia" que perdura
       } else {
         if (delayFeedback) delayFeedback.gain.setTargetAtTime(0.42, now, 0.6);
+        if (brightDelayFeedback) brightDelayFeedback.gain.setTargetAtTime(0.56, now, 0.6);
         if (marineNodes) marineNodes.filter.frequency.setTargetAtTime(200, now, 0.6);
       }
-      updateDroneForLetterCount(playLetters.length);
+      updateDroneMotion(letterKinetic, growthProportion);
     }
 
     playFrame = requestAnimationFrame(updatePlayScene);
@@ -1653,6 +1801,12 @@
       triggerMovementGrain(clampedEnergy);
     }
 
+    // sacudidas notorias también sueltan, a veces, un destello melódico agudo
+    if (jerk > JERK_DEADZONE * 2.5 && nowMs - lastMelodyAt > 260 && Math.random() < 0.18 + clampedEnergy * 0.4) {
+      lastMelodyAt = nowMs;
+      playMelodyPing(clampedEnergy);
+    }
+
     // cuanto más brusco el movimiento, más probable (y más numeroso) el
     // refuerzo de letras — y además adelanta la próxima tanda programada
     if (jerk > JERK_DEADZONE * 2 && Math.random() < 0.25 + clampedEnergy * 0.55) {
@@ -1679,6 +1833,7 @@
       playPointers.clear();
       playTilt = { x: 0, y: 0 };
       movementEnergy = 0;
+      letterKinetic = 0;
       lastAcceleration = null;
       playModeScrollPos = {
         x: window.scrollX || window.pageXOffset || 0,
@@ -1713,6 +1868,7 @@
         (el).style.opacity = '0.04';
       });
       playLetters = createPlayLetters();
+      initialLetterCount = playLetters.length;
       spawnBudget = EXTRA_LETTER_BUDGET;
       scheduleNextSpawn();
       playFrame = requestAnimationFrame(updatePlayScene);
@@ -1795,6 +1951,7 @@
     const intensity = e.pointerType === 'touch' ? 1.1 : 0.65;
     splashAt(e.clientX, e.clientY, intensity);
     playWaterDrop(intensity, e.clientX, e.clientY);
+    playMelodyPing(intensity);
   };
 
   const handlePointerMove = (e) => {
