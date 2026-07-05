@@ -1150,10 +1150,13 @@
 
      Nota técnica: la versión anterior alternaba bandpass (con resonancia)
      y distorsión aleatoria sobre ruido blanco — la combinación sonaba
-     metálica. Aquí es ruido marrón (más cálido), solo lowpass sin
-     resonancia, sin distorsión, y con menos señal hacia el delay para
-     que no se arme un repique — más cerca de viento o agua en movimiento
-     que de un efecto sintético. ---- */
+     metálica. Se cambió a ruido marrón (más cálido), solo lowpass sin
+     resonancia, sin distorsión. Pero quedaba puro ruido, sin ninguna
+     nota — descolgado del resto de la pieza, que es toda tonal (drone,
+     melodía, campanitas). Por eso ahora se le suma un tono suave tomado
+     de la misma escala modal (55Hz de raíz) que usa todo lo demás: el
+     ruido sigue dando la textura de aire/agua, pero el tono es lo que
+     lo vuelve música y no solo efecto. ---- */
   function triggerMovementGrain(energy) {
     if (!playAudioCtx) return;
     try {
@@ -1176,15 +1179,33 @@
       softener.frequency.value = filter.frequency.value * 1.6;
       softener.Q.value = 0.4;
 
-      const gain = playAudioCtx.createGain();
-      const peak = 0.05 + clamped * 0.16 + Math.random() * 0.03;
-      gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(peak, now + 0.03 + Math.random() * 0.05); // ataque gradual, no percusivo
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+      const mix = playAudioCtx.createGain();
+
+      const noiseGain = playAudioCtx.createGain();
+      const peak = 0.045 + clamped * 0.13 + Math.random() * 0.025;
+      noiseGain.gain.setValueAtTime(0.0001, now);
+      noiseGain.gain.exponentialRampToValueAtTime(peak, now + 0.03 + Math.random() * 0.05); // ataque gradual, no percusivo
+      noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
 
       noise.connect(filter);
       filter.connect(softener);
-      softener.connect(gain);
+      softener.connect(noiseGain);
+      noiseGain.connect(mix);
+
+      // tono: nota de la misma escala modal que el resto, registro medio-grave
+      const toneRatio = MELODY_SCALE_RATIOS[Math.floor(Math.random() * MELODY_SCALE_RATIOS.length)];
+      const toneFreq = 55 * toneRatio * (2 + Math.floor(Math.random() * 2));
+      const tone = playAudioCtx.createOscillator();
+      tone.type = Math.random() < 0.5 ? 'sine' : 'triangle';
+      tone.frequency.value = toneFreq;
+      const toneGain = playAudioCtx.createGain();
+      const tonePeak = (0.03 + clamped * 0.06) * (0.7 + Math.random() * 0.4);
+      const toneDur = dur * (0.8 + Math.random() * 0.4);
+      toneGain.gain.setValueAtTime(0.0001, now);
+      toneGain.gain.exponentialRampToValueAtTime(tonePeak, now + 0.05 + Math.random() * 0.06);
+      toneGain.gain.exponentialRampToValueAtTime(0.0001, now + toneDur);
+      tone.connect(toneGain);
+      toneGain.connect(mix);
 
       const toDry = playAudioCtx.createGain();
       toDry.gain.value = 0.5 + Math.random() * 0.2;
@@ -1192,11 +1213,13 @@
       toDelay.gain.value = 0.2 + Math.random() * 0.2 + clamped * 0.12; // menos delay: evita el repique
       const toReverb = playAudioCtx.createGain();
       toReverb.gain.value = 0.35 + Math.random() * 0.2;
-      gain.connect(toDry); gain.connect(toDelay); gain.connect(toReverb);
+      mix.connect(toDry); mix.connect(toDelay); mix.connect(toReverb);
       toDry.connect(dryBus); toDelay.connect(delaySend); toReverb.connect(reverbSend);
 
       noise.start(now);
       noise.stop(now + dur + 0.05);
+      tone.start(now);
+      tone.stop(now + Math.max(dur, toneDur) + 0.05);
     } catch (err) {
       console.warn('triggerMovementGrain falló, se omite este grano:', err);
     }
@@ -1355,43 +1378,65 @@
 
   /* ---- Capa 6: destello de aparición — cuando el sistema de spawn
      (más adelante) suelta letras nuevas en pantalla, esto les pone un
-     sonido: un tono muy agudo y breve por letra (hasta 3 a la vez,
-     con un pequeño desfase entre ellas, como un arpegio liviano),
-     tomado de la misma escala modal que la melodía del toque. Va
-     mucho más suave que esa melodía —es un detalle, no un evento
-     central— y vive sobre todo en el delay brillante, así que se
-     integra con los ecos que ya están sonando en vez de competir. ---- */
+     sonido de campanitas de viento: varios tonos agudos (hasta 4,
+     como un pequeño cluster de cristales chocando entre sí) tomados
+     de la misma escala modal que la melodía del toque, cada uno con
+     un parcial levemente inarmónico encima que da el tintineo de
+     vidrio en vez de sonar a flauta pura. El ataque es lento —no un
+     "ping" instantáneo— para que el sonido aparezca junto con la
+     letra, no antes. Vive sobre todo en el delay brillante y la
+     reverb, así que se integra con los ecos ya sonando.
+
+     Nota técnica: la primera versión tenía un pico de apenas
+     0.026-0.042 —demasiado bajo para notarse, el mismo problema que
+     ya habíamos visto con el toque y la sacudida— y un ataque de
+     solo 20ms, lo opuesto de "aparecer lento". Aquí el pico es varias
+     veces mayor y el ataque dura varios cientos de milisegundos. ---- */
   function playSpawnGlint(count = 1) {
     if (!playAudioCtx) return;
     try {
       const now = playAudioCtx.currentTime;
-      const voices = Math.min(3, Math.max(1, count));
+      const voices = Math.min(4, Math.max(1, count));
       for (let i = 0; i < voices; i++) {
         const ratio = MELODY_SCALE_RATIOS[Math.floor(Math.random() * MELODY_SCALE_RATIOS.length)];
         const freq = 55 * ratio * (6 + Math.floor(Math.random() * 3)); // agudo, más liviano que la melodía del toque
-        const startAt = now + i * (0.035 + Math.random() * 0.05);
-        const dur = 0.26 + Math.random() * 0.22;
+        const startAt = now + i * (0.05 + Math.random() * 0.09);
+        const attack = 0.32 + Math.random() * 0.18; // aparece lento, en sintonía con la transición visual
+        const dur = 0.9 + Math.random() * 0.7;
 
         const osc = playAudioCtx.createOscillator();
         osc.type = 'sine';
         osc.frequency.value = freq;
+
+        // parcial inarmónico y discreto: el "tintineo de vidrio" del cristal
+        const shimmer = playAudioCtx.createOscillator();
+        shimmer.type = 'sine';
+        shimmer.frequency.value = freq * (2.76 + Math.random() * 0.3);
+        const shimmerLevel = playAudioCtx.createGain();
+        shimmerLevel.gain.value = 0.22 + Math.random() * 0.15;
+        shimmer.connect(shimmerLevel);
+
         const gain = playAudioCtx.createGain();
         gain.gain.setValueAtTime(0.0001, startAt);
-        gain.gain.exponentialRampToValueAtTime(0.026 + Math.random() * 0.016, startAt + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.0001, startAt + dur);
+        gain.gain.exponentialRampToValueAtTime(0.09 + Math.random() * 0.05, startAt + attack);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startAt + attack + dur);
         osc.connect(gain);
+        shimmerLevel.connect(gain); // comparte la misma envolvente lenta que el tono principal
 
         const toDry = playAudioCtx.createGain();
-        toDry.gain.value = 0.3 + Math.random() * 0.15;
+        toDry.gain.value = 0.4 + Math.random() * 0.15;
         const toBrightDelay = playAudioCtx.createGain();
-        toBrightDelay.gain.value = 0.3 + Math.random() * 0.2;
+        toBrightDelay.gain.value = 0.4 + Math.random() * 0.2;
         const toReverb = playAudioCtx.createGain();
-        toReverb.gain.value = 0.4 + Math.random() * 0.15;
+        toReverb.gain.value = 0.45 + Math.random() * 0.15;
         gain.connect(toDry); gain.connect(toBrightDelay); gain.connect(toReverb);
         toDry.connect(dryBus); toBrightDelay.connect(brightDelaySend); toReverb.connect(reverbSend);
 
+        const stopAt = startAt + attack + dur + 0.1;
         osc.start(startAt);
-        osc.stop(startAt + dur + 0.05);
+        osc.stop(stopAt);
+        shimmer.start(startAt);
+        shimmer.stop(stopAt);
       }
     } catch (err) {
       console.warn('playSpawnGlint falló, se omite este destello:', err);
