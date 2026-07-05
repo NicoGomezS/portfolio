@@ -687,6 +687,7 @@
 
   /* ---- Play Mode: toque (agua) ---- */
   const playPointers = new Map(); // pointerId -> { x, y, strength, dragVX, dragVY }
+  const melodyVoices = new Map(); // pointerId -> { osc, fm, stopAt } de la nota activa de ese dedo
 
   /* ---- Play Mode: audio ---- */
   let playAudioCtx = null;
@@ -1198,24 +1199,18 @@
     }
   }
 
-  /* ---- Capa 4: toque — dos resonadores excitados por el mismo
-     impulso de ruido (como golpear un cuerpo con varios modos
-     propios), afinados a una proporción aleatoria sobre la
-     fundamental del drone: nunca suena exactamente igual dos veces.
-     Nada de seno con caída de tono + golpe de ruido grave (esa
-     combinación es, literalmente, la receta clásica de un kick).
-     Se reparte entre seco, delay (deja eco) y reverb, con una mezcla
-     que también varía en cada toque. Arrastrar activa aparte una
-     corriente continua (ver startDragSound/updateDragSound).
-
-     Nota técnica: la primera versión usaba Q muy alta (16-40) sobre
-     una excitación de solo 60ms — eso hace un filtro tan angosto que
-     casi no le da tiempo a "prender", y terminaba sonando casi mudo
-     en el parlante de un teléfono. Aquí la Q es más moderada, la
-     excitación más larga, y las frecuencias suben lo suficiente para
-     que el parlante del celular las reproduzca (por debajo de ~150Hz
-     la mayoría de los parlantes de teléfono casi no emiten nada). ---- */
-  function playWaterDrop(intensity = 1, x = 0, y = 0) {
+  /* ---- Capa 4: toque — ya no es un impulso de ruido excitando
+     resonadores (eso seguía leyéndose como un golpe/percusión, por
+     más que se le bajara la Q). Ahora son dos tonos sostenidos con
+     ataque suave —nunca instantáneo, eso es justo lo que evita el
+     efecto percusivo— en un intervalo consonante (quinta, cuarta o
+     tercera), con un pequeño desfase entre ambos para que suene como
+     un arpegio breve y no como un acorde golpeado. Viven en un
+     registro medio, por debajo de la melodía aguda del toque pero
+     por encima del drone, y usan la misma familia de proporciones
+     modales que el resto de la pieza. Arrastrar activa aparte una
+     corriente continua (ver startDragSound/updateDragSound). ---- */
+  function playWaterChime(intensity = 1, x = 0, y = 0) {
     if (!playAudioCtx) return;
     if (playAudioCtx.state === 'suspended') playAudioCtx.resume().catch(() => {});
     try {
@@ -1227,69 +1222,43 @@
       const ratio = ratios[Math.floor(Math.random() * ratios.length)];
       const detune = 1 + (Math.random() - 0.5) * 0.025; // pequeña variación de afinación cada vez
 
-      const impulse = playAudioCtx.createBufferSource();
-      impulse.buffer = createNoiseBuffer(0.14);
-
-      // modo agudo: la "identidad" del toque, breve y resonante
-      const pingFreq = root * ratio * detune * (4 + Math.floor(Math.random() * 2)); // 4-5 octavas: audible en parlante chico
-      const pingFilter = playAudioCtx.createBiquadFilter();
-      pingFilter.type = 'bandpass';
-      pingFilter.frequency.value = pingFreq;
-      pingFilter.Q.value = 4 + Math.random() * 7;
-      const pingDecay = 0.32 + Math.random() * 0.45;
-      const pingGain = playAudioCtx.createGain();
-      pingGain.gain.setValueAtTime(0.0001, now);
-      pingGain.gain.exponentialRampToValueAtTime(0.34 + clamped * 0.16, now + 0.008);
-      pingGain.gain.exponentialRampToValueAtTime(0.0001, now + pingDecay);
-
-      // modo grave: cuerpo/densidad, más discreto y algo más largo, pero
-      // todavía dentro de lo que un parlante de celular puede reproducir
-      const bodyFreq = root * ratio * detune * 2;
-      const bodyFilter = playAudioCtx.createBiquadFilter();
-      bodyFilter.type = 'bandpass';
-      bodyFilter.frequency.value = bodyFreq;
-      bodyFilter.Q.value = 2.5 + Math.random() * 4;
-      const bodyDecay = pingDecay + 0.22 + Math.random() * 0.35;
-      const bodyGain = playAudioCtx.createGain();
-      bodyGain.gain.setValueAtTime(0.0001, now);
-      bodyGain.gain.exponentialRampToValueAtTime(0.22 + clamped * 0.1, now + 0.012);
-      bodyGain.gain.exponentialRampToValueAtTime(0.0001, now + bodyDecay);
-
-      impulse.connect(pingFilter);
-      impulse.connect(bodyFilter);
-      pingFilter.connect(pingGain);
-      bodyFilter.connect(bodyGain);
+      const octave = 3 + Math.floor(Math.random() * 2); // registro medio: cuerpo sin ser grave-percusivo
+      const freq1 = root * ratio * detune * octave;
+      const intervalOptions = [3 / 2, 4 / 3, 5 / 4]; // quinta, cuarta, tercera mayor: todas consonantes
+      const freq2 = freq1 * intervalOptions[Math.floor(Math.random() * intervalOptions.length)];
+      const dur = 0.6 + Math.random() * 0.5;
+      const secondNoteDelay = 0.04 + Math.random() * 0.07; // leve desfase: arpegio, no acorde percutido
 
       const mix = playAudioCtx.createGain();
-      pingGain.connect(mix);
-      bodyGain.connect(mix);
 
-      // distorsión aleatoria ocasional: le da variedad tímbrica de un toque a otro.
-      // Blindado igual que en triggerMovementGrain: si falla, seguimos sin
-      // distorsión en vez de perder el toque completo.
-      let tail = mix;
-      if (Math.random() < 0.3) {
-        try {
-          const shaper = playAudioCtx.createWaveShaper();
-          shaper.curve = makeDistortionCurve(0.12 + Math.random() * 0.3);
-          tail.connect(shaper);
-          tail = shaper;
-        } catch (err) { /* seguimos sin distorsión */ }
-      }
+      const makeVoice = (freq, peakLevel, startDelay) => {
+        const osc = playAudioCtx.createOscillator();
+        osc.type = Math.random() < 0.5 ? 'sine' : 'triangle';
+        osc.frequency.value = freq;
+        const voiceGain = playAudioCtx.createGain();
+        const startAt = now + startDelay;
+        voiceGain.gain.setValueAtTime(0.0001, startAt);
+        voiceGain.gain.exponentialRampToValueAtTime(peakLevel, startAt + 0.05 + Math.random() * 0.03);
+        voiceGain.gain.exponentialRampToValueAtTime(0.0001, startAt + dur);
+        osc.connect(voiceGain);
+        voiceGain.connect(mix);
+        osc.start(startAt);
+        osc.stop(startAt + dur + 0.05);
+      };
+
+      makeVoice(freq1, 0.15 + clamped * 0.07, 0);
+      makeVoice(freq2, 0.1 + clamped * 0.05, secondNoteDelay);
 
       const toDry = playAudioCtx.createGain();
-      toDry.gain.value = 0.6 + Math.random() * 0.2;
+      toDry.gain.value = 0.55 + Math.random() * 0.2;
       const toDelay = playAudioCtx.createGain();
-      toDelay.gain.value = 0.35 + Math.random() * 0.3;
+      toDelay.gain.value = 0.35 + Math.random() * 0.25;
       const toReverb = playAudioCtx.createGain();
       toReverb.gain.value = 0.32 + Math.random() * 0.2;
-      tail.connect(toDry); tail.connect(toDelay); tail.connect(toReverb);
+      mix.connect(toDry); mix.connect(toDelay); mix.connect(toReverb);
       toDry.connect(dryBus); toDelay.connect(delaySend); toReverb.connect(reverbSend);
-
-      impulse.start(now);
-      impulse.stop(now + 0.16);
     } catch (err) {
-      console.warn('playWaterDrop falló, se omite este toque:', err);
+      console.warn('playWaterChime falló, se omite este toque:', err);
     }
   }
 
@@ -1300,11 +1269,16 @@
      superpuestos que van formando el contorno. Un leve FM le da un
      timbre más "cristal/agua" que un seno puro. También suena, con
      menor probabilidad, en granos de movimiento intensos — así lo
-     agudo queda ligado tanto al toque como a la sacudida. ---- */
+     agudo queda ligado tanto al toque como a la sacudida.
+
+     Devuelve la voz (osciladores + cuándo termina) para que, si el
+     toque se convierte en arrastre, se le pueda desafinar el pitch
+     hacia arriba o abajo según la dirección del dedo mientras suena
+     (ver bendMelodyVoice, llamada desde handlePointerMove). ---- */
   const MELODY_SCALE_RATIOS = [1, 9 / 8, 6 / 5, 4 / 3, 3 / 2, 5 / 3, 9 / 5, 2];
 
   function playMelodyPing(intensity = 1) {
-    if (!playAudioCtx) return;
+    if (!playAudioCtx) return null;
     try {
       const now = playAudioCtx.currentTime;
       const clamped = Math.min(2, Math.max(0.25, intensity));
@@ -1331,7 +1305,7 @@
       fm.start(now);
 
       const gain = playAudioCtx.createGain();
-      const dur = 0.5 + Math.random() * 0.6;
+      const dur = 0.75 + Math.random() * 0.7; // un poco más larga que antes: da tiempo a que se note el arrastre
       gain.gain.setValueAtTime(0.0001, now);
       gain.gain.exponentialRampToValueAtTime(0.075 + clamped * 0.045, now + 0.012);
       gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
@@ -1347,12 +1321,33 @@
       gain.connect(toDry); gain.connect(toBrightDelay); gain.connect(toReverb);
       toDry.connect(dryBus); toBrightDelay.connect(brightDelaySend); toReverb.connect(reverbSend);
 
+      const stopAt = now + dur + 0.05;
       osc.start(now);
-      osc.stop(now + dur + 0.05);
-      fm.stop(now + dur + 0.05);
+      osc.stop(stopAt);
+      fm.stop(stopAt);
+
+      return { osc, fm, stopAt };
     } catch (err) {
       console.warn('playMelodyPing falló, se omite esta nota:', err);
+      return null;
     }
+  }
+
+  /* Desafina la nota activa de este dedo hacia arriba o hacia abajo
+     mientras se arrastra: arriba en pantalla = más agudo, abajo = más
+     grave. Un pequeño componente horizontal se suma encima. Se
+     desvanece sola si la nota ya terminó (no hace falta detenerla). */
+  function bendMelodyVoice(pointerId, dragVX, dragVY) {
+    const voice = melodyVoices.get(pointerId);
+    if (!voice || !playAudioCtx) return;
+    const now = playAudioCtx.currentTime;
+    if (now > voice.stopAt) {
+      melodyVoices.delete(pointerId);
+      return;
+    }
+    const bendCents = Math.max(-500, Math.min(500, (-dragVY * 8) + (dragVX * 2.5)));
+    voice.osc.detune.setTargetAtTime(bendCents, now, 0.06);
+    voice.fm.detune.setTargetAtTime(bendCents, now, 0.06);
   }
 
   function startDragSound(pointerId) {
@@ -1950,8 +1945,9 @@
     playPointers.set(e.pointerId, { x: e.clientX, y: e.clientY, strength, dragVX: 0, dragVY: 0 });
     const intensity = e.pointerType === 'touch' ? 1.1 : 0.65;
     splashAt(e.clientX, e.clientY, intensity);
-    playWaterDrop(intensity, e.clientX, e.clientY);
-    playMelodyPing(intensity);
+    playWaterChime(intensity, e.clientX, e.clientY);
+    const voice = playMelodyPing(intensity);
+    if (voice) melodyVoices.set(e.pointerId, voice);
   };
 
   const handlePointerMove = (e) => {
@@ -1966,10 +1962,14 @@
     // el sonido de arrastre solo arranca cuando de verdad hay arrastre, no en un toque simple
     startDragSound(e.pointerId);
     updateDragSound(e.pointerId, e.clientX, e.clientY);
+    // si la nota de este dedo sigue sonando, el arrastre la desafina hacia
+    // arriba o abajo según la dirección (arriba en pantalla = más aguda)
+    bendMelodyVoice(e.pointerId, pointer.dragVX, pointer.dragVY);
   };
 
   const handlePointerUp = (e) => {
     playPointers.delete(e.pointerId);
+    melodyVoices.delete(e.pointerId);
     stopDragSound(e.pointerId);
   };
 
