@@ -663,6 +663,9 @@
   let playLetters = [];
   let playModeScrollPos = { x: 0, y: 0 };
   let playHintTimer = null;
+  let swarmCentroidX = 0;  // promedio de posición de todas las letras (se actualiza cada cuadro)
+  let swarmCentroidY = 0;  // se usa para una fuerza MUY suave que mantiene el conjunto centrado
+  let swarmCentroidValid = false;
 
   /* ---- Play Mode: aparición progresiva de letras ---- */
   let spawnBudget = 0;
@@ -678,7 +681,7 @@
   let orientationEnabled = true;   // inclinación continua (efecto "bandeja con agua")
   let motionEnabled = true;        // movimiento/sacudida (acelerómetro)
   let playTilt = { x: 0, y: 0 };
-  let lastAcceleration = null;
+  let accelBaseline = null;        // línea base lenta (gravedad/orientación); el gesto es lo que se aparta de ella
   let movementEnergy = 0;          // 0-1, decae solo: "tensión" que sube con la sacudida y se disuelve
   let letterKinetic = 0;           // 0-1, suavizado: qué tan agitado está el enjambre de letras AHORA MISMO
   let lastGrainAt = 0;
@@ -686,6 +689,7 @@
   const JERK_DEADZONE = 1.1;       // ignora el ruido normal de sostener el teléfono
   const JERK_TO_FORCE = 0.5;       // cuánta fuerza física recibe cada letra por unidad de sacudida
   const JERK_TO_ENERGY = 22;       // cuánta sacudida hace falta para energía máxima
+  const ACCEL_BASELINE_ALPHA = 0.02; // qué tan rápido la línea base sigue a la orientación real
 
   /* ---- Play Mode: toque (agua) ---- */
   const playPointers = new Map(); // pointerId -> { x, y, strength, dragVX, dragVY }
@@ -1357,22 +1361,15 @@
 
   /* ---- Capa 6: destello de aparición — cuando el sistema de spawn
      (más adelante) suelta letras nuevas en pantalla, esto les pone un
-     sonido de cristal: no un tono simple con un armónico encima, sino
-     varios parciales INARMÓNICOS (relaciones que no son múltiplos
-     enteros de la fundamental), cada uno apagándose a su propio ritmo
-     —los agudos más rápido que los graves—, que es justo lo que hace
-     que algo suene a vidrio/metal resonando en vez de a un instrumento
-     afinado. Hasta 3 letras a la vez arman un pequeño cluster, tomando
-     la nota base de la misma escala modal que la melodía del toque.
-     Va deliberadamente MUY por debajo del volumen del toque —es un
-     detalle ambiental, no debe tapar nada— y vive sobre todo en el
-     delay brillante y la reverb.
-
-     Nota técnica: la versión anterior (un tono + un solo armónico
-     discreto) sonaba más a campana/flauta que a cristal, y encima
-     con hasta 4 voces a la vez terminaba más fuerte que el toque y
-     lo tapaba. Aquí son menos voces, cada una más floja, y el timbre
-     usa 3 parciales inarmónicos por nota en vez de 1+1. ---- */
+     sonido de estrella titilando: un tono limpio y agudo (no varios
+     parciales inarmónicos como antes —eso sonaba a vidrio, no a
+     estrella—) con un vibrato sutil que le da el "titileo", más un
+     brillo suave una octava arriba. Aparece con un swell gradual y se
+     apaga con un fade, como una estrella que se enciende y se
+     desvanece. Hasta 3 a la vez, tomando la nota de la misma escala
+     modal que la melodía del toque. Va bien por debajo del volumen
+     del toque —es un detalle, no debe tapar nada— y vive sobre todo
+     en el delay brillante y la reverb. ---- */
   function playSpawnGlint(count = 1) {
     if (!playAudioCtx) return;
     try {
@@ -1380,44 +1377,56 @@
       const voices = Math.min(3, Math.max(1, count));
       for (let i = 0; i < voices; i++) {
         const ratio = MELODY_SCALE_RATIOS[Math.floor(Math.random() * MELODY_SCALE_RATIOS.length)];
-        const freq = 55 * ratio * (6 + Math.floor(Math.random() * 3)); // agudo, más liviano que la melodía del toque
-        const startAt = now + i * (0.06 + Math.random() * 0.1);
-        const attack = 0.15 + Math.random() * 0.14; // gradual, pero conserva algo del "tink" del vidrio
-        const dur = 0.65 + Math.random() * 0.45;
+        const freq = 55 * ratio * (7 + Math.floor(Math.random() * 3)); // bien agudo y brillante
+        const startAt = now + i * (0.07 + Math.random() * 0.11);
+        const swell = 0.22 + Math.random() * 0.14; // se enciende
+        const fade = 0.5 + Math.random() * 0.35;   // se apaga
 
-        const mix = playAudioCtx.createGain();
+        const osc = playAudioCtx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
 
-        // parciales inarmónicos (no múltiplos enteros): esto es lo que
-        // realmente da el timbre de cristal. Los más agudos se apagan
-        // antes, como en una resonancia física real.
-        const partials = [
-          { ratio: 1, level: 1, decayMul: 1 },
-          { ratio: 2.37 + Math.random() * 0.4, level: 0.42 + Math.random() * 0.15, decayMul: 0.7 },
-          { ratio: 3.9 + Math.random() * 0.5, level: 0.22 + Math.random() * 0.12, decayMul: 0.45 }
-        ];
-        partials.forEach((p) => {
-          const osc = playAudioCtx.createOscillator();
-          osc.type = 'sine';
-          osc.frequency.value = freq * p.ratio;
-          const partialDur = dur * p.decayMul;
-          const partialGain = playAudioCtx.createGain();
-          partialGain.gain.setValueAtTime(0.0001, startAt);
-          partialGain.gain.exponentialRampToValueAtTime(0.038 * p.level, startAt + attack);
-          partialGain.gain.exponentialRampToValueAtTime(0.0001, startAt + attack + partialDur);
-          osc.connect(partialGain);
-          partialGain.connect(mix);
-          osc.start(startAt);
-          osc.stop(startAt + attack + partialDur + 0.05);
-        });
+        // vibrato leve: el "titileo" de una estrella, no un tono fijo y plano
+        const vibrato = playAudioCtx.createOscillator();
+        vibrato.frequency.value = 5 + Math.random() * 3;
+        const vibratoDepth = playAudioCtx.createGain();
+        vibratoDepth.gain.value = freq * (0.006 + Math.random() * 0.006);
+        vibrato.connect(vibratoDepth);
+        vibratoDepth.connect(osc.frequency);
+
+        // brillo limpio una octava arriba (armónico, no inarmónico —
+        // una estrella es nítida, no suena a vidrio resonando)
+        const sparkle = playAudioCtx.createOscillator();
+        sparkle.type = 'sine';
+        sparkle.frequency.value = freq * 2;
+        const sparkleLevel = playAudioCtx.createGain();
+        sparkleLevel.gain.value = 0.18 + Math.random() * 0.1;
+
+        const gain = playAudioCtx.createGain();
+        gain.gain.setValueAtTime(0.0001, startAt);
+        gain.gain.exponentialRampToValueAtTime(0.075 + Math.random() * 0.035, startAt + swell);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startAt + swell + fade);
+
+        osc.connect(gain);
+        sparkle.connect(sparkleLevel);
+        sparkleLevel.connect(gain);
 
         const toDry = playAudioCtx.createGain();
-        toDry.gain.value = 0.3 + Math.random() * 0.12;
+        toDry.gain.value = 0.32 + Math.random() * 0.12;
         const toBrightDelay = playAudioCtx.createGain();
-        toBrightDelay.gain.value = 0.32 + Math.random() * 0.15;
+        toBrightDelay.gain.value = 0.35 + Math.random() * 0.15;
         const toReverb = playAudioCtx.createGain();
-        toReverb.gain.value = 0.38 + Math.random() * 0.12;
-        mix.connect(toDry); mix.connect(toBrightDelay); mix.connect(toReverb);
+        toReverb.gain.value = 0.4 + Math.random() * 0.12;
+        gain.connect(toDry); gain.connect(toBrightDelay); gain.connect(toReverb);
         toDry.connect(dryBus); toBrightDelay.connect(brightDelaySend); toReverb.connect(reverbSend);
+
+        const stopAt = startAt + swell + fade + 0.1;
+        osc.start(startAt);
+        osc.stop(stopAt);
+        sparkle.start(startAt);
+        sparkle.stop(stopAt);
+        vibrato.start(startAt);
+        vibrato.stop(stopAt);
       }
     } catch (err) {
       console.warn('playSpawnGlint falló, se omite este destello:', err);
@@ -1770,6 +1779,26 @@
       pointer.dragVY *= 0.8;
     });
 
+    // Red de seguridad: si el promedio de posición de todas las letras se
+    // aleja del centro de la pantalla (p. ej. por una racha de sacudidas
+    // con algún sesgo), esto las va trayendo de vuelta como grupo. No es
+    // un resorte por letra —cada una se sigue moviendo libre respecto a
+    // las demás y no vuelve a SU propia posición original—, es una fuerza
+    // sobre el CENTROIDE del conjunto: con miles de letras en pantalla,
+    // mover unas pocas con un toque casi no desplaza ese promedio, así
+    // que en el uso normal esto es imperceptible; solo se nota si el
+    // conjunto entero termina desplazándose de forma sostenida hacia un
+    // lado. Se calcula con el centroide del cuadro anterior para no tener
+    // que recorrer el arreglo dos veces por cuadro.
+    let recenterX = 0;
+    let recenterY = 0;
+    if (swarmCentroidValid) {
+      recenterX = (width / 2 - swarmCentroidX) * 0.006;
+      recenterY = (height / 2 - swarmCentroidY) * 0.006;
+    }
+    let sumX = 0;
+    let sumY = 0;
+
     let kineticSum = 0; // energía cinética del enjambre en este cuadro: alimenta al drone
 
     playLetters.forEach((letter) => {
@@ -1798,8 +1827,8 @@
         pushY += pointer.dragVY * pull * pointer.strength * 0.09;
       });
 
-      letter.vx += tiltX + pushX;
-      letter.vy += tiltY + pushY;
+      letter.vx += tiltX + pushX + recenterX;
+      letter.vy += tiltY + pushY + recenterY;
       letter.vx *= 0.92;
       letter.vy *= 0.92;
       letter.x += letter.vx;
@@ -1807,6 +1836,8 @@
       letter.x = Math.max(4, Math.min(width - letter.size, letter.x));
       letter.y = Math.max(4, Math.min(height - letter.size, letter.y));
       kineticSum += Math.abs(letter.vx) + Math.abs(letter.vy);
+      sumX += letter.x;
+      sumY += letter.y;
 
       // vaivén decorativo: no mueve la posición real, solo la hace "respirar"
       const swayX = Math.sin(time * 0.7 + letter.phase) * 0.6;
@@ -1820,6 +1851,10 @@
       letter.el.style.opacity = String(0.92 * introEase);
       letter.el.style.transform = `translate(${letter.x - letter.baseX + swayX}px, ${letter.y - letter.baseY + swayY}px) scale(${scale})`;
     });
+
+    swarmCentroidX = sumX / playLetters.length;
+    swarmCentroidY = sumY / playLetters.length;
+    swarmCentroidValid = true;
 
     // "tensión" de fondo: una sacudida sostenida abre un poco el fondo marino
     // y la realimentación de los dos delays, y se disuelve sola cuando el
@@ -1925,7 +1960,8 @@
       playTilt = { x: 0, y: 0 };
       movementEnergy = 0;
       letterKinetic = 0;
-      lastAcceleration = null;
+      accelBaseline = null;
+      swarmCentroidValid = false;
       playModeScrollPos = {
         x: window.scrollX || window.pageXOffset || 0,
         y: window.scrollY || window.pageYOffset || 0
@@ -2018,16 +2054,28 @@
     const acc = (e.acceleration && e.acceleration.x !== null) ? e.acceleration : e.accelerationIncludingGravity;
     if (!acc) return;
     const ax = acc.x || 0, ay = acc.y || 0, az = acc.z || 0;
-    if (lastAcceleration) {
-      const dax = ax - lastAcceleration.x;
-      const day = ay - lastAcceleration.y;
-      const daz = az - lastAcceleration.z;
-      const jerk = Math.hypot(dax, day, daz);
-      if (jerk > JERK_DEADZONE) {
-        applyMovementForce(dax, day, jerk);
-      }
+
+    if (!accelBaseline) accelBaseline = { x: ax, y: ay, z: az };
+
+    // El gesto es lo que se aparta de una línea base LENTA (orientación/gravedad),
+    // no la diferencia entre dos muestras consecutivas. La diferencia entre dos
+    // muestras es frágil: si el teléfono se reorienta un poco mientras se agita
+    // (algo normal, nadie agita perfectamente en línea recta), la gravedad no
+    // cancela del todo y deja un sesgo que se acumula sacudida tras sacudida —
+    // eso era lo que iba empujando las letras siempre hacia el mismo rincón.
+    const jx = ax - accelBaseline.x;
+    const jy = ay - accelBaseline.y;
+    const jz = az - accelBaseline.z;
+    const jerk = Math.hypot(jx, jy, jz);
+    if (jerk > JERK_DEADZONE) {
+      applyMovementForce(jx, jy, jerk);
     }
-    lastAcceleration = { x: ax, y: ay, z: az };
+
+    // la línea base sigue muy despacio a la señal real: absorbe cambios lentos
+    // de orientación sin absorber el gesto de sacudida en sí (que es rápido)
+    accelBaseline.x += (ax - accelBaseline.x) * ACCEL_BASELINE_ALPHA;
+    accelBaseline.y += (ay - accelBaseline.y) * ACCEL_BASELINE_ALPHA;
+    accelBaseline.z += (az - accelBaseline.z) * ACCEL_BASELINE_ALPHA;
   }, { passive: true });
 
   /* ================================================================
