@@ -540,9 +540,9 @@
       ║  No se descarga nada hasta que el visitante toque ▶.    ║
       ╚══════════════════════════════════════════════════════════╝
       -->
-      <div class="audio-player" data-src="<!-- *** PON AQUÍ LA RUTA — ej: audio/mi-pieza.mp3 *** -->">
+      <div class="audio-player" data-src=nicolas-gomez-salamanca-life-out-of-balance.mp3>
         <!-- *** NOMBRE VISIBLE DEL TRACK *** -->
-        <div class="audio-track-name">nicolas-gomez-salamanca-life-out-of-balance.mp3</div>
+        <div class="audio-track-name">Life Out of Balance</div>
         <div class="audio-controls">
           <button class="audio-play-btn" aria-label="Play / Pause">▶</button>
           <div class="audio-seek-wrap">
@@ -2185,7 +2185,7 @@ resource and central instrument within my sonic language. To this day I have bui
       });
       audio.addEventListener('error', () => {
         playBtn.classList.remove('loading'); playBtn.textContent = '✕';
-        timeEl.textContent = 'Error al cargar audio';
+        timeEl.textContent = 'Error loading audio';
       });
       audio.src = src; audio.load();
     }
