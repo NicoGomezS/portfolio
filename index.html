@@ -2167,18 +2167,21 @@ resource and central instrument within my sonic language. To this day I have bui
   let playLetters = [];
   let playModeScrollPos = { x: 0, y: 0 };
   let playHintTimer = null;
-  let swarmCentroidX = 0;
-  let swarmCentroidY = 0;
-  let swarmCentroidValid = false;
 
   /* ---- Play Mode: aparición progresiva de letras ---- */
   let spawnBudget = 0;
   let spawnTimer = null;
   let lastSpawnRegenAt = 0;
   let initialLetterCount = 0;
-  const EXTRA_LETTER_BUDGET = 220;
-  const SPAWN_BUDGET_REGEN_PER_SEC = 1.6;
+  const EXTRA_LETTER_BUDGET = 260;
+  const SPAWN_BUDGET_REGEN_PER_SEC = 3.4;
   const SPAWN_INTRO_MS = 480;
+  /* Tirón de "vuelta a casa": cada letra se atrae muy suavemente hacia su
+     posición original en el texto (baseX/baseY). Es proporcional a la
+     distancia, así que una letra mandada lejos por un clic fuerte siente
+     más tirón que una que apenas se movió — el hueco que deja un golpe
+     fuerte en el centro se rellena solo, sin pelear contra el efecto agua. */
+  const HOME_PULL = 0.0016;
 
   /* ---- Play Mode: sensores (no-op en la mayoría de desktops) ---- */
   let sensorsPermissionRequested = false;
@@ -3183,14 +3186,17 @@ resource and central instrument within my sonic language. To this day I have bui
   function scheduleNextSpawn() {
     if (!playModeActive) return;
     const zone = computeLetterDensity();
-    const urgency = Math.min(1, zone.emptyRatio * 0.75 + movementEnergy * 0.6);
+    // emptyRatio pesa casi todo: en desktop no hay sacudida (movementEnergy
+    // se queda en 0 sin acelerómetro), así que la urgencia real depende de
+    // qué tan vacía está la pantalla — un clic fuerte la sube de inmediato.
+    const urgency = Math.min(1, zone.emptyRatio * 1.3 + movementEnergy * 0.6);
     const baseDelay = 950 + Math.random() * 650;
-    const delay = Math.max(140, baseDelay * (1 - urgency * 0.82));
+    const delay = Math.max(90, baseDelay * (1 - urgency * 0.88));
     spawnTimer = setTimeout(() => {
       const freshZone = computeLetterDensity();
-      const freshUrgency = Math.min(1, freshZone.emptyRatio * 0.75 + movementEnergy * 0.6);
-      const count = freshUrgency > 0.6 ? (Math.random() < 0.5 ? 3 : 4)
-                  : freshUrgency > 0.3 ? (Math.random() < 0.5 ? 2 : 3)
+      const freshUrgency = Math.min(1, freshZone.emptyRatio * 1.3 + movementEnergy * 0.6);
+      const count = freshUrgency > 0.6 ? (Math.random() < 0.5 ? 4 : 6)
+                  : freshUrgency > 0.3 ? (Math.random() < 0.5 ? 3 : 4)
                   : (Math.random() < 0.5 ? 1 : 2);
       spawnPlayLetters(count, freshZone);
       scheduleNextSpawn();
@@ -3224,8 +3230,10 @@ resource and central instrument within my sonic language. To this day I have bui
       pointer.dragVX *= 0.8;
       pointer.dragVY *= 0.8;
       // Un hover que lleva rato sin moverse (mouse quieto o que salió de
-      // la ventana sin disparar un evento limpio) deja de empujar solo.
+      // la ventana sin disparar un evento limpio) deja de empujar solo,
+      // y su sonido de arrastre (si lo había) se apaga con él.
       if (!pointer.active && nowMs - pointer.lastMove > 600) {
+        stopDragSound(id);
         playPointers.delete(id);
       }
     });
@@ -3253,15 +3261,6 @@ resource and central instrument within my sonic language. To this day I have bui
       }
     }
 
-    let recenterX = 0;
-    let recenterY = 0;
-    if (swarmCentroidValid) {
-      recenterX = (width / 2 - swarmCentroidX) * 0.006;
-      recenterY = (height / 2 - swarmCentroidY) * 0.006;
-    }
-    let sumX = 0;
-    let sumY = 0;
-
     let kineticSum = 0;
 
     playLetters.forEach((letter) => {
@@ -3287,8 +3286,11 @@ resource and central instrument within my sonic language. To this day I have bui
         pushY += pointer.dragVY * pull * pointer.strength * 0.09;
       });
 
-      letter.vx += tiltX + pushX + recenterX;
-      letter.vy += tiltY + pushY + recenterY;
+      const homeX = (letter.baseX - letter.x) * HOME_PULL;
+      const homeY = (letter.baseY - letter.y) * HOME_PULL;
+
+      letter.vx += tiltX + pushX + homeX;
+      letter.vy += tiltY + pushY + homeY;
       letter.vx *= 0.92;
       letter.vy *= 0.92;
       letter.x += letter.vx;
@@ -3296,8 +3298,6 @@ resource and central instrument within my sonic language. To this day I have bui
       letter.x = Math.max(4, Math.min(width - letter.size, letter.x));
       letter.y = Math.max(4, Math.min(height - letter.size, letter.y));
       kineticSum += Math.abs(letter.vx) + Math.abs(letter.vy);
-      sumX += letter.x;
-      sumY += letter.y;
 
       const swayX = Math.sin(time * letter.freqX + letter.phase) * letter.ampX;
       const swayY = Math.cos(time * letter.freqY + letter.phase * 1.16) * letter.ampY;
@@ -3309,10 +3309,6 @@ resource and central instrument within my sonic language. To this day I have bui
       letter.el.style.transform = `translate(${letter.x - letter.baseX + swayX}px, ${letter.y - letter.baseY + swayY}px) scale(${scale})`;
     });
 
-    swarmCentroidX = sumX / playLetters.length;
-    swarmCentroidY = sumY / playLetters.length;
-    swarmCentroidValid = true;
-
     if (playAudioCtx) {
       const now = playAudioCtx.currentTime;
       const kineticAvg = playLetters.length ? kineticSum / playLetters.length : 0;
@@ -3322,12 +3318,12 @@ resource and central instrument within my sonic language. To this day I have bui
       if (movementEnergy > 0.001) {
         if (delayFeedback) delayFeedback.gain.setTargetAtTime(0.42 + movementEnergy * 0.22, now, 0.4);
         if (brightDelayFeedback) brightDelayFeedback.gain.setTargetAtTime(0.56 + movementEnergy * 0.16, now, 0.4);
-        if (marineNodes) marineNodes.filter.frequency.setTargetAtTime(200 + movementEnergy * 260, now, 0.3);
+        if (marineNodes) marineNodes.bodyFilter.frequency.setTargetAtTime(200 + movementEnergy * 260, now, 0.3);
         movementEnergy *= 0.965;
       } else {
         if (delayFeedback) delayFeedback.gain.setTargetAtTime(0.42, now, 0.6);
         if (brightDelayFeedback) brightDelayFeedback.gain.setTargetAtTime(0.56, now, 0.6);
-        if (marineNodes) marineNodes.filter.frequency.setTargetAtTime(200, now, 0.6);
+        if (marineNodes) marineNodes.bodyFilter.frequency.setTargetAtTime(200, now, 0.6);
       }
       updateDroneMotion(letterKinetic, growthProportion);
     }
@@ -3425,7 +3421,6 @@ resource and central instrument within my sonic language. To this day I have bui
       movementEnergy = 0;
       letterKinetic = 0;
       accelBaseline = null;
-      swarmCentroidValid = false;
       playModeScrollPos = {
         x: window.scrollX || window.pageXOffset || 0,
         y: window.scrollY || window.pageYOffset || 0
@@ -3533,6 +3528,18 @@ resource and central instrument within my sonic language. To this day I have bui
     const intensity = e.pointerType === 'touch' ? 1.1 : 0.65;
     splashAt(e.clientX, e.clientY, intensity * 0.55); // el "plop" localizado de la gota
     createRipple(e.clientX, e.clientY, intensity);     // la onda que se expande desde ahí
+    // El clic puede vaciar de golpe la zona donde cayó — se reprograma el
+    // siguiente relleno para que se recalcule ya, en vez de esperar a que
+    // termine el ciclo anterior (que pudo haberse armado cuando todavía
+    // estaba lleno). Se da un pequeño margen para que la onda/gota ya
+    // hayan empujado las letras y la zona vacía sea real, no anticipada.
+    if (spawnTimer) {
+      setTimeout(() => {
+        if (!playModeActive) return;
+        stopSpawning();
+        scheduleNextSpawn();
+      }, 180);
+    }
     if (!audioMuted) {
       playWaterChime(intensity, e.clientX, e.clientY);
       const voice = playMelodyPing(intensity);
@@ -3559,13 +3566,15 @@ resource and central instrument within my sonic language. To this day I have bui
     pointer.y = e.clientY;
     pointer.lastMove = performance.now();
 
-    // El sonido de arrastre y el "doblado" de la melodía quedan
-    // reservados para cuando de verdad se sostiene el clic/dedo — un
-    // simple hover se mueve en silencio, como un dedo rozando el agua.
-    if (pointer.active && !audioMuted) {
+    // El "arrastre" en desktop es, sobre todo, el hover: el mouse ya
+    // empuja las letras sin necesidad de sostener el clic, así que el
+    // sonido de corriente de agua acompaña cualquier movimiento sobre
+    // ellas. El "doblado" de la melodía queda reservado para cuando de
+    // verdad se sostiene el clic/dedo, como antes.
+    if (!audioMuted) {
       startDragSound(e.pointerId);
       updateDragSound(e.pointerId, e.clientX, e.clientY);
-      bendMelodyVoice(e.pointerId, pointer.dragVX, pointer.dragVY);
+      if (pointer.active) bendMelodyVoice(e.pointerId, pointer.dragVX, pointer.dragVY);
     }
   };
 
